@@ -16,18 +16,27 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-const socket = io('https://map-functionality-maps.onrender.com');
+const socket = io('https://map-functionality-maps.onrender.com', {
+    transports: ['websocket'], // Use WebSocket transport only
+    reconnection: true,
+    reconnectionAttempts: 5,
+    reconnectionDelay: 3000
+});
 
 const Maps = () => {
     const [locations, setLocations] = useState({});
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
 
     useEffect(() => {
-        navigator.geolocation.watchPosition((position) => {
-            const { latitude, longitude } = position.coords;
-            setUserLocation([latitude, longitude]);
-            socket.emit('updateLocation', { lat: latitude, lng: longitude });
-        });
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition((position) => {
+                const { latitude, longitude } = position.coords;
+                setUserLocation([latitude, longitude]);
+                socket.emit('updateLocation', { lat: latitude, lng: longitude });
+            }, (error) => {
+                console.error("Error getting location:", error);
+            });
+        }
         
         socket.on('locationUpdate', (data) => {
             setLocations(data);

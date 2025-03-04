@@ -6,9 +6,18 @@ const cors = require('cors');
 
 const app = express();
 app.use(cors());
-const PORT = 5000;
+const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: 'https://map-functionality-maps.onrender.com' } });
+const io = new Server(server, {
+    cors: {
+        origin: '*', // Allow all origins (for testing)
+        methods: ['GET', 'POST']
+    }
+});
+
+app.get('/', (req, res) => {
+    res.send('Socket.io server is running');
+});
 
 let users = {}; // Store user locations
 
