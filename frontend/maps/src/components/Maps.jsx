@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Popup, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Popup, Marker, CircleMarker } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import io from 'socket.io-client';
 
@@ -26,9 +26,9 @@ const Maps = () => {
         <MapContainer center={userLocation} zoom={13} style={{ height: '100vh', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {Object.values(locations).map((loc, index) => (
-                <Marker key={index} position={[loc.lat, loc.lng]}>
+                <CircleMarker key={index} position={[loc.lat, loc.lng]}>
                     <Popup>Live Location</Popup>
-                </Marker>
+                </CircleMarker>
             ))}
         </MapContainer>
     );
