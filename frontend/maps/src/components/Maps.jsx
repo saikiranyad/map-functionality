@@ -4,18 +4,21 @@ import 'leaflet/dist/leaflet.css';
 import io from 'socket.io-client';
 import L from 'leaflet';
 
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
 // Fix missing Leaflet marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-    iconUrl: require('leaflet/dist/images/marker-icon.png'),
-    shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+    iconRetinaUrl: markerIcon2x,
+    iconUrl: markerIcon,
+    shadowUrl: markerShadow,
 });
 
-// const socket = io('http://localhost:5000');
-const socket = io('https://map-functionality.onrender.com');
+const socket = io('https://map-functionality-maps.onrender.com');
 
-const MapComponent = () => {
+const Maps = () => {
     const [locations, setLocations] = useState({});
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
 
@@ -43,4 +46,4 @@ const MapComponent = () => {
     );
 };
 
-export default MapComponent;
+export default Maps;
