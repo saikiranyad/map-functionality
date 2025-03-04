@@ -370,7 +370,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-const socket = io('https://map-functionality-maps.onrender.com', {
+const socket = io('https://map-functionality.onrender.com', {
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
@@ -463,7 +463,7 @@ const Maps = () => {
                 ))}
                 {startPoint && <Marker position={startPoint}><Popup>Start Point</Popup></Marker>}
                 {endPoint && <Marker position={endPoint}><Popup>End Point</Popup></Marker>}
-                {route.length > 0 && <Polyline positions={route} color="red" />}
+                {route.length > 0 && <Polyline positions={route} color="blue" />}
             </MapContainer>
         </div>
     );
