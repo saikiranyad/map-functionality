@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: '*', // Allow all origins (for testing)
+        origin: 'https://map-functionality-maps.onrender.com', // Allow all origins (for testing)
         methods: ['GET', 'POST']
     }
 });
