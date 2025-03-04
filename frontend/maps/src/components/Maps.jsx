@@ -26,9 +26,9 @@ const Maps = () => {
         <MapContainer center={userLocation} zoom={13} style={{ height: '100vh', width: '100%' }}>
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
             {Object.values(locations).map((loc, index) => (
-                <CircleMarker key={index} position={[loc.lat, loc.lng]}>
+                <Marker key={index} position={[loc.lat, loc.lng]}>
                     <Popup>Live Location</Popup>
-                </CircleMarker>
+                </Marker>
             ))}
         </MapContainer>
     );
