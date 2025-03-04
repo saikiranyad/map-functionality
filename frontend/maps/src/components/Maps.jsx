@@ -240,7 +240,7 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-const socket = io('https://map-functionality-maps.onrender.com', {
+const socket = io('https://map-functionality.onrender.com', {
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
