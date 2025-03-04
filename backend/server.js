@@ -1,6 +1,6 @@
-// Backend (server.js)
 const express = require('express');
 const http = require('http');
+const axios = require('axios');
 const { Server } = require('socket.io');
 const cors = require('cors');
 
@@ -10,7 +10,7 @@ const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
 const io = new Server(server, {
     cors: {
-        origin: 'https://map-functionality-maps.onrender.com', // Allow all origins (for testing)
+        origin: '*', // Allow all origins (for testing)
         methods: ['GET', 'POST']
     }
 });
@@ -21,11 +21,22 @@ app.get('/', (req, res) => {
 
 let users = {}; // Store user locations
 
+async function getLocationName(lat, lng) {
+    try {
+        const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+        return response.data.display_name || "Unknown Location";
+    } catch (error) {
+        console.error("Error fetching location name:", error);
+        return "Unknown Location";
+    }
+}
+
 io.on('connection', (socket) => {
     console.log('A user connected:', socket.id);
     
-    socket.on('updateLocation', (data) => {
-        users[socket.id] = data;
+    socket.on('updateLocation', async (data) => {
+        const locationName = await getLocationName(data.lat, data.lng);
+        users[socket.id] = { ...data, locationName };
         io.emit('locationUpdate', users);
     });
     
