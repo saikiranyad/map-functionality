@@ -463,7 +463,7 @@ const Maps = () => {
                 ))}
                 {startPoint && <Marker position={startPoint}><Popup>Start Point</Popup></Marker>}
                 {endPoint && <Marker position={endPoint}><Popup>End Point</Popup></Marker>}
-                {route.length > 0 && <Polyline positions={route} color="blue" />}
+                {route.length > 0 && <Polyline positions={route} color="red" />}
             </MapContainer>
         </div>
     );
