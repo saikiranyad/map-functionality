@@ -2187,7 +2187,6 @@ import 'leaflet/dist/leaflet.css';
 import io from 'socket.io-client';
 import L from 'leaflet';
 import axios from 'axios';
-import './MapStyles.css';
 
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -2279,20 +2278,19 @@ const Maps = () => {
     };
 
     return (
-        <div className="map-container">
-            <div className="input-container">
-                <input type="text" value={fromInput} onChange={(e) => setFromInput(e.target.value)} placeholder="From Location" disabled={useLiveLocation} />
-                <button onClick={() => handleLocationFetch(fromInput, setStartPoint)} disabled={useLiveLocation}>Set From</button>
-                <input type="text" value={toInput} onChange={(e) => setToInput(e.target.value)} placeholder="To Location" />
-                <button onClick={() => handleLocationFetch(toInput, setEndPoint)}>Set To</button>
-                <button onClick={fetchRoute}>Show Route</button>
-                <button onClick={() => setUseLiveLocation(!useLiveLocation)}>{useLiveLocation ? "Disable Live Location" : "Live Location"}</button>
+        <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
+                <input type="text" value={fromInput} onChange={(e) => setFromInput(e.target.value)} placeholder="From Location" disabled={useLiveLocation} style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <button onClick={() => handleLocationFetch(fromInput, setStartPoint)} disabled={useLiveLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set From</button>
+                <input type="text" value={toInput} onChange={(e) => setToInput(e.target.value)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <button onClick={() => handleLocationFetch(toInput, setEndPoint)} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set To</button>
+                <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer' }}>Show Route</button>
             </div>
-            <div className="info-box">
+            <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '10px' }}>
                 {distance && <p><strong>Distance:</strong> {distance} km</p>}
                 {duration && <p><strong>Estimated Time:</strong> {duration} mins</p>}
             </div>
-            <MapContainer center={userLocation} zoom={13} className="map-view">
+            <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }}>
                 <RecenterMap center={userLocation} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} icon={vehicleIcon} rotationAngle={userHeading}><Popup>Your Live Location</Popup></Marker>
