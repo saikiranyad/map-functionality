@@ -290,11 +290,13 @@ const app = express();
 app.use(cors());
 const PORT = process.env.PORT || 5000;
 const server = http.createServer(app);
+
 const io = new Server(server, {
     cors: {
-        origin: '*', // Allow all origins (for testing)
+        origin: '*', // Allow all origins
         methods: ['GET', 'POST']
-    }
+    },
+    transports: ['websocket', 'polling']
 });
 
 app.get('/', (req, res) => {
@@ -325,7 +327,9 @@ io.on('connection', (socket) => {
     socket.on('disconnect', () => {
         delete users[socket.id];
         io.emit('locationUpdate', users);
+        console.log('User disconnected:', socket.id);
     });
 });
 
 server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+

@@ -1426,12 +1426,17 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-const socket = io('https://map-functionality.onrender.com', {
-    transports: ['websocket'],
+// WebSocket Initialization with error handling
+const SOCKET_URL = 'https://map-functionality.onrender.com';
+const socket = io(SOCKET_URL, {
+    transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
 });
+
+socket.on("connect", () => console.log("Connected to WebSocket"));
+socket.on("connect_error", (err) => console.error("WebSocket Error:", err));
 
 const RecenterMap = ({ center }) => {
     const map = useMap();
@@ -1450,22 +1455,30 @@ const Maps = () => {
     const [distance, setDistance] = useState(null);
     const [fromInput, setFromInput] = useState('');
     const [toInput, setToInput] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
-    
+
     useEffect(() => {
         if (navigator.geolocation) {
-            navigator.geolocation.watchPosition((position) => {
-                const { latitude, longitude } = position.coords;
-                setUserLocation([latitude, longitude]);
-                socket.emit('updateLocation', { lat: latitude, lng: longitude });
-            }, (error) => {
-                console.error("Error getting location:", error);
-            });
+            navigator.geolocation.watchPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    setUserLocation([latitude, longitude]);
+                    socket.emit('updateLocation', { lat: latitude, lng: longitude });
+                },
+                (error) => {
+                    console.error("Error getting location:", error);
+                }
+            );
         }
-        
-        socket.on('locationUpdate', (data) => {
+
+        const handleLocationUpdate = (data) => {
             setLocations(data);
-        });
+        };
+
+        socket.on('locationUpdate', handleLocationUpdate);
+
+        return () => {
+            socket.off('locationUpdate', handleLocationUpdate);
+        };
     }, []);
 
     const handleMapClick = (e) => {
