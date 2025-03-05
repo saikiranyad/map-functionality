@@ -2035,7 +2035,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Vehicle icon with rotation
 const vehicleIcon = new L.Icon({
-    iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Red_Arrow_Up.svg/1024px-Red_Arrow_Up.svg.png',
+    iconUrl: 'https://w7.pngwing.com/pngs/208/107/png-transparent-bicycle-cycling-equestrian-computer-icons-mountain-bike-bikes-sport-bicycle-frame-racing-thumbnail.png',
     iconSize: [35, 35],
     iconAnchor: [17, 35],
     popupAnchor: [0, -35]
