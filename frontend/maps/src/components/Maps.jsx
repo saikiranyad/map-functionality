@@ -2268,7 +2268,10 @@ const Maps = () => {
                     const routeData = response.data.routes[0];
                     setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
                     setDistance((routeData.distance / 1000).toFixed(2));
-                    setDuration((routeData.duration / 60).toFixed(2));
+                    const totalMinutes = routeData.duration / 60;
+const hours = Math.floor(totalMinutes / 60);
+const minutes = Math.floor(totalMinutes % 60);
+setDuration(`${hours}:${minutes.toString().padStart(2, '0')}`);
                 } catch (error) {
                     console.error("Error fetching route:", error);
                 }
