@@ -2284,6 +2284,7 @@ const Maps = () => {
                 <input type="text" value={toInput} onChange={(e) => setToInput(e.target.value)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
                 <button onClick={() => handleLocationFetch(toInput, setEndPoint)} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set To</button>
                 <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer' }}>Show Route</button>
+                <button onClick={() => setUseLiveLocation(!useLiveLocation)} style={{ padding: '10px', borderRadius: '5px', background: '#17a2b8', color: 'white', cursor: 'pointer' }}>{useLiveLocation ? "Disable Live Location" : "Live Location"}</button>
             </div>
             <div style={{ fontWeight: 'bold', color: '#333', marginBottom: '10px' }}>
                 {distance && <p><strong>Distance:</strong> {distance} km</p>}
@@ -2302,6 +2303,7 @@ const Maps = () => {
 };
 
 export default Maps;
+
 
 
 
