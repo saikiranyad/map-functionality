@@ -1051,6 +1051,180 @@
 
 
 
+// import React, { useEffect, useState } from 'react';
+// import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+// import 'leaflet/dist/leaflet.css';
+// import io from 'socket.io-client';
+// import L from 'leaflet';
+// import axios from 'axios';
+
+// import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+// import markerIcon from 'leaflet/dist/images/marker-icon.png';
+// import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// // Vehicle icon
+// const vehicleIcon = new L.Icon({
+//     iconUrl: 'https://e7.pngegg.com/pngimages/17/10/png-clipart-mini-cooper-scooter-motorcycle-minibike-small-motorcycle-scooter-motorcycle.png',
+//     iconSize: [35, 35],
+//     iconAnchor: [17, 35],
+//     popupAnchor: [0, -35]
+// });
+
+// // Fix missing Leaflet marker icons
+// delete L.Icon.Default.prototype._getIconUrl;
+// L.Icon.Default.mergeOptions({
+//     iconRetinaUrl: markerIcon2x,
+//     iconUrl: markerIcon,
+//     shadowUrl: markerShadow,
+// });
+
+// const socket = io('https://map-functionality.onrender.com', {
+//     transports: ['websocket'],
+//     reconnection: true,
+//     reconnectionAttempts: 5,
+//     reconnectionDelay: 3000
+// });
+
+// const RecenterMap = ({ center }) => {
+//     const map = useMap();
+//     useEffect(() => {
+//         map.setView(center, map.getZoom());
+//     }, [center, map]);
+//     return null;
+// };
+
+// const Maps = () => {
+//     const [locations, setLocations] = useState({});
+//     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
+//     const [startPoint, setStartPoint] = useState(null);
+//     const [endPoint, setEndPoint] = useState(null);
+//     const [route, setRoute] = useState([]);
+//     const [distance, setDistance] = useState(null);
+//     const [searchInput, setSearchInput] = useState('');
+//     const [suggestions, setSuggestions] = useState([]);
+//     const [rideStarted, setRideStarted] = useState(false);
+    
+//     useEffect(() => {
+//         if (navigator.geolocation) {
+//             navigator.geolocation.watchPosition((position) => {
+//                 const { latitude, longitude } = position.coords;
+//                 setUserLocation([latitude, longitude]);
+//                 socket.emit('updateLocation', { lat: latitude, lng: longitude });
+//             }, (error) => {
+//                 console.error("Error getting location:", error);
+//             });
+//         }
+        
+//         socket.on('locationUpdate', (data) => {
+//             setLocations(data);
+//         });
+//     }, []);
+
+//     const handleMapClick = (e) => {
+//         if (!startPoint) {
+//             setStartPoint(e.latlng);
+//         } else if (!endPoint) {
+//             setEndPoint(e.latlng);
+//             fetchRoute(startPoint, e.latlng);
+//         } else {
+//             setStartPoint(e.latlng);
+//             setEndPoint(null);
+//             setRoute([]);
+//             setDistance(null);
+//         }
+//     };
+
+//     const fetchRoute = async (start, end) => {
+//         try {
+//             const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`);
+//             const coordinates = response.data.routes[0].geometry.coordinates;
+//             setRoute(coordinates.map(coord => [coord[1], coord[0]]));
+//             setDistance((response.data.routes[0].distance / 1000).toFixed(2)); // Convert meters to KM
+//         } catch (error) {
+//             console.error("Error fetching route:", error);
+//         }
+//     };
+
+//     const handleSearchChange = async (e) => {
+//         setSearchInput(e.target.value);
+//         if (e.target.value.length > 2) {
+//             try {
+//                 const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${e.target.value}`);
+//                 setSuggestions(response.data);
+//             } catch (error) {
+//                 console.error("Error fetching suggestions:", error);
+//             }
+//         } else {
+//             setSuggestions([]);
+//         }
+//     };
+
+//     const handleSuggestionClick = (lat, lon) => {
+//         setEndPoint({ lat: parseFloat(lat), lng: parseFloat(lon) });
+//         fetchRoute(startPoint || { lat: userLocation[0], lng: userLocation[1] }, { lat: parseFloat(lat), lng: parseFloat(lon) });
+//         setSearchInput('');
+//         setSuggestions([]);
+//     };
+
+//     const setLiveLocationAsStart = () => {
+//         setStartPoint({ lat: userLocation[0], lng: userLocation[1] });
+//     };
+
+//     const startRide = () => {
+//         setRideStarted(true);
+//     };
+
+//     const endRide = () => {
+//         setRideStarted(false);
+//         setStartPoint(null);
+//         setEndPoint(null);
+//         setRoute([]);
+//         setDistance(null);
+//     };
+
+//     return (
+//         <div style={{ padding: '10px', textAlign: 'center' }}>
+//             <input 
+//                 type="text" 
+//                 value={searchInput} 
+//                 onChange={handleSearchChange} 
+//                 placeholder="Enter a location"
+//                 style={{ padding: '10px', width: '300px', marginBottom: '10px' }}
+//             />
+//             <ul style={{ listStyleType: 'none', padding: 0 }}>
+//                 {suggestions.map((s, index) => (
+//                     <li key={index} onClick={() => handleSuggestionClick(s.lat, s.lon)} style={{ cursor: 'pointer', padding: '5px', background: '#f0f0f0', margin: '2px 0' }}>
+//                         {s.display_name}
+//                     </li>
+//                 ))}
+//             </ul>
+//             <button onClick={setLiveLocationAsStart} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer' }}>Set Live Location as Start</button>
+//             <button onClick={startRide} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer', marginLeft: '10px' }}>Start Ride</button>
+//             <button onClick={endRide} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer', marginLeft: '10px' }}>End Ride</button>
+//             <button onClick={() => setUserLocation([...userLocation])} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer', marginLeft: '10px' }}>Recenter</button>
+//             {distance && <p>Distance: {distance} km</p>}
+//             <MapContainer center={userLocation} zoom={13} style={{ height: '90vh', width: '100%' }} onClick={handleMapClick}>
+//                 <RecenterMap center={userLocation} />
+//                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+//                 <Marker position={userLocation} icon={vehicleIcon}><Popup>Your Live Location</Popup></Marker>
+//                 {startPoint && <Marker position={startPoint}><Popup>Start Point</Popup></Marker>}
+//                 {endPoint && <Marker position={endPoint}><Popup>End Point</Popup></Marker>}
+//                 {route.length > 0 && <Polyline positions={route} color="blue" />}
+//             </MapContainer>
+//         </div>
+//     );
+// };
+
+// export default Maps;
+
+
+
+
+
+
+
+
+
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1061,6 +1235,21 @@ import axios from 'axios';
 import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Custom Markers
+const startIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684908.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
+});
+
+const endIcon = new L.Icon({
+    iconUrl: 'https://cdn-icons-png.flaticon.com/512/684/684913.png',
+    iconSize: [40, 40],
+    iconAnchor: [20, 40],
+    popupAnchor: [0, -40]
+});
 
 // Vehicle icon
 const vehicleIcon = new L.Icon({
@@ -1145,70 +1334,14 @@ const Maps = () => {
         }
     };
 
-    const handleSearchChange = async (e) => {
-        setSearchInput(e.target.value);
-        if (e.target.value.length > 2) {
-            try {
-                const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${e.target.value}`);
-                setSuggestions(response.data);
-            } catch (error) {
-                console.error("Error fetching suggestions:", error);
-            }
-        } else {
-            setSuggestions([]);
-        }
-    };
-
-    const handleSuggestionClick = (lat, lon) => {
-        setEndPoint({ lat: parseFloat(lat), lng: parseFloat(lon) });
-        fetchRoute(startPoint || { lat: userLocation[0], lng: userLocation[1] }, { lat: parseFloat(lat), lng: parseFloat(lon) });
-        setSearchInput('');
-        setSuggestions([]);
-    };
-
-    const setLiveLocationAsStart = () => {
-        setStartPoint({ lat: userLocation[0], lng: userLocation[1] });
-    };
-
-    const startRide = () => {
-        setRideStarted(true);
-    };
-
-    const endRide = () => {
-        setRideStarted(false);
-        setStartPoint(null);
-        setEndPoint(null);
-        setRoute([]);
-        setDistance(null);
-    };
-
     return (
         <div style={{ padding: '10px', textAlign: 'center' }}>
-            <input 
-                type="text" 
-                value={searchInput} 
-                onChange={handleSearchChange} 
-                placeholder="Enter a location"
-                style={{ padding: '10px', width: '300px', marginBottom: '10px' }}
-            />
-            <ul style={{ listStyleType: 'none', padding: 0 }}>
-                {suggestions.map((s, index) => (
-                    <li key={index} onClick={() => handleSuggestionClick(s.lat, s.lon)} style={{ cursor: 'pointer', padding: '5px', background: '#f0f0f0', margin: '2px 0' }}>
-                        {s.display_name}
-                    </li>
-                ))}
-            </ul>
-            <button onClick={setLiveLocationAsStart} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer' }}>Set Live Location as Start</button>
-            <button onClick={startRide} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer', marginLeft: '10px' }}>Start Ride</button>
-            <button onClick={endRide} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer', marginLeft: '10px' }}>End Ride</button>
-            <button onClick={() => setUserLocation([...userLocation])} style={{ padding: '10px', marginBottom: '10px', cursor: 'pointer', marginLeft: '10px' }}>Recenter</button>
-            {distance && <p>Distance: {distance} km</p>}
             <MapContainer center={userLocation} zoom={13} style={{ height: '90vh', width: '100%' }} onClick={handleMapClick}>
                 <RecenterMap center={userLocation} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} icon={vehicleIcon}><Popup>Your Live Location</Popup></Marker>
-                {startPoint && <Marker position={startPoint}><Popup>Start Point</Popup></Marker>}
-                {endPoint && <Marker position={endPoint}><Popup>End Point</Popup></Marker>}
+                {startPoint && <Marker position={startPoint} icon={startIcon}><Popup>Start Point</Popup></Marker>}
+                {endPoint && <Marker position={endPoint} icon={endIcon}><Popup>End Point</Popup></Marker>}
                 {route.length > 0 && <Polyline positions={route} color="blue" />}
             </MapContainer>
         </div>
@@ -1216,6 +1349,7 @@ const Maps = () => {
 };
 
 export default Maps;
+
 
 
 
