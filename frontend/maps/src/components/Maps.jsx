@@ -1447,7 +1447,6 @@ const Maps = () => {
     const [distance, setDistance] = useState(null);
     const [fromInput, setFromInput] = useState('');
     const [toInput, setToInput] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -1465,20 +1464,27 @@ const Maps = () => {
         });
     }, []);
 
-    const handleMapClick = (e) => {
-        if (!startPoint) {
-            setStartPoint(e.latlng);
-            setFromInput(`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
-        } else if (!endPoint) {
-            setEndPoint(e.latlng);
-            setToInput(`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
-        } else {
-            setStartPoint(e.latlng);
-            setFromInput(`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
-            setEndPoint(null);
-            setToInput('');
-            setRoute([]);
-            setDistance(null);
+    const handleFromLocation = async () => {
+        try {
+            const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${fromInput}`);
+            if (response.data.length > 0) {
+                const location = response.data[0];
+                setStartPoint({ lat: parseFloat(location.lat), lng: parseFloat(location.lon) });
+            }
+        } catch (error) {
+            console.error("Error fetching location:", error);
+        }
+    };
+
+    const handleToLocation = async () => {
+        try {
+            const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${toInput}`);
+            if (response.data.length > 0) {
+                const location = response.data[0];
+                setEndPoint({ lat: parseFloat(location.lat), lng: parseFloat(location.lon) });
+            }
+        } catch (error) {
+            console.error("Error fetching location:", error);
         }
     };
 
@@ -1504,18 +1510,20 @@ const Maps = () => {
                 placeholder="From Location"
                 style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px', marginRight: '10px' }}
             />
+            <button onClick={handleFromLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set From</button>
             <input 
                 type="text" 
                 value={toInput} 
                 onChange={(e) => setToInput(e.target.value)}
                 placeholder="To Location"
-                style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px' }}
+                style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px', marginLeft: '10px' }}
             />
-            <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer', marginLeft: '10px' }}>Show Route</button>
+            <button onClick={handleToLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set To</button>
+            <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer', marginLeft: '10px' }}>Show Route</button>
             <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                 {distance && <p>Distance: {distance} km</p>}
             </div>
-            <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }} onClick={handleMapClick}>
+            <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }}>
                 <RecenterMap center={userLocation} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} icon={vehicleIcon}><Popup>Your Live Location</Popup></Marker>
@@ -1528,6 +1536,7 @@ const Maps = () => {
 };
 
 export default Maps;
+
 
 
 
