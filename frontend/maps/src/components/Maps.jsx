@@ -2001,6 +2001,13 @@ const Maps = () => {
                 {distance && <p>Distance: {distance} km</p>}
                 {duration && <p>Estimated Time: {duration} mins</p>}
             </div>
+            <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }}>
+                <RecenterMap center={userLocation} />
+                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                <Marker position={userLocation} icon={vehicleIcon} rotationAngle={userHeading}><Popup>Your Live Location</Popup></Marker>                 {startPoint && <Marker position={startPoint}><Popup>Start Point</Popup></Marker>}
+                {endPoint && <Marker position={endPoint}><Popup>End Point</Popup></Marker>}
+                {route.length > 0 && <Polyline positions={route} color="blue" />}
+             </MapContainer>
         </div>
     );
 };
