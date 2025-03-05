@@ -1396,7 +1396,6 @@
 
 
 
-
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1473,7 +1472,6 @@ const Maps = () => {
         } else if (!endPoint) {
             setEndPoint(e.latlng);
             setToInput(`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
-            fetchRoute(startPoint, e.latlng);
         } else {
             setStartPoint(e.latlng);
             setFromInput(`${e.latlng.lat.toFixed(4)}, ${e.latlng.lng.toFixed(4)}`);
@@ -1484,14 +1482,16 @@ const Maps = () => {
         }
     };
 
-    const fetchRoute = async (start, end) => {
-        try {
-            const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`);
-            const coordinates = response.data.routes[0].geometry.coordinates;
-            setRoute(coordinates.map(coord => [coord[1], coord[0]]));
-            setDistance((response.data.routes[0].distance / 1000).toFixed(2)); // Convert meters to KM
-        } catch (error) {
-            console.error("Error fetching route:", error);
+    const fetchRoute = async () => {
+        if (startPoint && endPoint) {
+            try {
+                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+                const coordinates = response.data.routes[0].geometry.coordinates;
+                setRoute(coordinates.map(coord => [coord[1], coord[0]]));
+                setDistance((response.data.routes[0].distance / 1000).toFixed(2)); // Convert meters to KM
+            } catch (error) {
+                console.error("Error fetching route:", error);
+            }
         }
     };
 
@@ -1511,6 +1511,7 @@ const Maps = () => {
                 placeholder="To Location"
                 style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px' }}
             />
+            <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer', marginLeft: '10px' }}>Show Route</button>
             <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                 {distance && <p>Distance: {distance} km</p>}
             </div>
@@ -1527,8 +1528,6 @@ const Maps = () => {
 };
 
 export default Maps;
-
-
 
 
 
