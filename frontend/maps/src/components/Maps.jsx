@@ -1445,7 +1445,6 @@ const Maps = () => {
     const [distance, setDistance] = useState(null);
     const [searchInput, setSearchInput] = useState('');
     const [suggestions, setSuggestions] = useState([]);
-    const [rideStarted, setRideStarted] = useState(false);
     
     useEffect(() => {
         if (navigator.geolocation) {
@@ -1512,8 +1511,8 @@ const Maps = () => {
                 style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px' }}
             />
             <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
-                {startPoint && <p>From: {startPoint.lat.toFixed(4)}, {startPoint.lng.toFixed(4)}</p>}
-                {endPoint && <p>To: {endPoint.lat.toFixed(4)}, {endPoint.lng.toFixed(4)}</p>}
+                <p>From: {startPoint ? `${startPoint.lat.toFixed(4)}, ${startPoint.lng.toFixed(4)}` : 'Select start point'}</p>
+                <p>To: {endPoint ? `${endPoint.lat.toFixed(4)}, ${endPoint.lng.toFixed(4)}` : 'Select end point'}</p>
             </div>
             <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }} onClick={handleMapClick}>
                 <RecenterMap center={userLocation} />
@@ -1528,6 +1527,7 @@ const Maps = () => {
 };
 
 export default Maps;
+
 
 
 
