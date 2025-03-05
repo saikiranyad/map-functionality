@@ -1397,8 +1397,6 @@
 
 
 
-
-
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1426,17 +1424,12 @@ L.Icon.Default.mergeOptions({
     shadowUrl: markerShadow,
 });
 
-// WebSocket Initialization with error handling
-const SOCKET_URL = 'https://map-functionality.onrender.com';
-const socket = io(SOCKET_URL, {
-    transports: ['websocket', 'polling'],
+const socket = io('https://map-functionality.onrender.com', {
+    transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 3000
 });
-
-socket.on("connect", () => console.log("Connected to WebSocket"));
-socket.on("connect_error", (err) => console.error("WebSocket Error:", err));
 
 const RecenterMap = ({ center }) => {
     const map = useMap();
@@ -1455,30 +1448,22 @@ const Maps = () => {
     const [distance, setDistance] = useState(null);
     const [fromInput, setFromInput] = useState('');
     const [toInput, setToInput] = useState('');
+    const [suggestions, setSuggestions] = useState([]);
 
     useEffect(() => {
         if (navigator.geolocation) {
-            navigator.geolocation.watchPosition(
-                (position) => {
-                    const { latitude, longitude } = position.coords;
-                    setUserLocation([latitude, longitude]);
-                    socket.emit('updateLocation', { lat: latitude, lng: longitude });
-                },
-                (error) => {
-                    console.error("Error getting location:", error);
-                }
-            );
+            navigator.geolocation.watchPosition((position) => {
+                const { latitude, longitude } = position.coords;
+                setUserLocation([latitude, longitude]);
+                socket.emit('updateLocation', { lat: latitude, lng: longitude });
+            }, (error) => {
+                console.error("Error getting location:", error);
+            });
         }
 
-        const handleLocationUpdate = (data) => {
+        socket.on('locationUpdate', (data) => {
             setLocations(data);
-        };
-
-        socket.on('locationUpdate', handleLocationUpdate);
-
-        return () => {
-            socket.off('locationUpdate', handleLocationUpdate);
-        };
+        });
     }, []);
 
     const handleMapClick = (e) => {
@@ -1515,14 +1500,14 @@ const Maps = () => {
             <input 
                 type="text" 
                 value={fromInput} 
-                readOnly 
+                onChange={(e) => setFromInput(e.target.value)}
                 placeholder="From Location"
                 style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px', marginRight: '10px' }}
             />
             <input 
                 type="text" 
                 value={toInput} 
-                readOnly 
+                onChange={(e) => setToInput(e.target.value)}
                 placeholder="To Location"
                 style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px' }}
             />
@@ -1542,10 +1527,6 @@ const Maps = () => {
 };
 
 export default Maps;
-
-
-
-
 
 
 
