@@ -1916,6 +1916,7 @@ const Maps = () => {
     const [duration, setDuration] = useState(null);
     const [fromInput, setFromInput] = useState('');
     const [toInput, setToInput] = useState('');
+    const [useLiveLocation, setUseLiveLocation] = useState(false);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -1959,27 +1960,19 @@ const Maps = () => {
     };
 
     const fetchRoute = async () => {
-        if (startPoint && endPoint) {
-            try {
-                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
-                const routeData = response.data.routes[0];
-                setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-                setDistance((routeData.distance / 1000).toFixed(2)); // Convert meters to KM
-                setDuration((routeData.duration / 60).toFixed(2)); // Convert seconds to minutes
-            } catch (error) {
-                console.error("Error fetching route:", error);
+        if (endPoint) {
+            const start = useLiveLocation ? userLocation : startPoint;
+            if (start) {
+                try {
+                    const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+                    const routeData = response.data.routes[0];
+                    setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                    setDistance((routeData.distance / 1000).toFixed(2));
+                    setDuration((routeData.duration / 60).toFixed(2));
+                } catch (error) {
+                    console.error("Error fetching route:", error);
+                }
             }
-        }
-    };
-
-    const setLiveLocation = () => {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((position) => {
-                const { latitude, longitude } = position.coords;
-                setStartPoint({ lat: latitude, lng: longitude });
-            }, (error) => {
-                console.error("Error getting live location:", error);
-            });
         }
     };
 
@@ -1990,9 +1983,10 @@ const Maps = () => {
                 value={fromInput} 
                 onChange={(e) => setFromInput(e.target.value)}
                 placeholder="From Location"
+                disabled={useLiveLocation}
                 style={{ padding: '12px', width: '300px', borderRadius: '8px', border: '1px solid #ccc', marginBottom: '10px', marginRight: '10px' }}
             />
-            <button onClick={handleFromLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set From</button>
+            <button onClick={handleFromLocation} disabled={useLiveLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set From</button>
             <input 
                 type="text" 
                 value={toInput} 
@@ -2002,7 +1996,7 @@ const Maps = () => {
             />
             <button onClick={handleToLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set To</button>
             <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer', marginLeft: '10px' }}>Show Route</button>
-            <button onClick={setLiveLocation} style={{ padding: '10px', borderRadius: '5px', background: '#17a2b8', color: 'white', cursor: 'pointer', marginLeft: '10px' }}>Live Location</button>
+            <button onClick={() => setUseLiveLocation(!useLiveLocation)} style={{ padding: '10px', borderRadius: '5px', background: '#17a2b8', color: 'white', cursor: 'pointer', marginLeft: '10px' }}>{useLiveLocation ? "Disable Live Location" : "Live Location"}</button>
             <div style={{ marginBottom: '10px', fontWeight: 'bold', color: '#333' }}>
                 {distance && <p>Distance: {distance} km</p>}
                 {duration && <p>Estimated Time: {duration} mins</p>}
