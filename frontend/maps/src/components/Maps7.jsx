@@ -532,6 +532,21 @@ const Maps7 = () => {
         }
     };
 
+    const fetchRoute = async () => {
+        const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;
+        if (start && endPoint) {
+            try {
+                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+                const routeData = response.data.routes[0];
+                setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                setDistance((routeData.distance / 1000).toFixed(2));
+                setDuration((routeData.duration / 60).toFixed(2));
+            } catch (error) {
+                console.error("Error fetching route:", error);
+            }
+        }
+    };
+
     return (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
             <input type="text" placeholder="From" value={fromInput} onChange={(e) => {
