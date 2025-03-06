@@ -2695,6 +2695,12 @@ const Maps = () => {
         }
     };
 
+    const selectSuggestion = (location, setFunction, setInput) => {
+        setFunction({ lat: parseFloat(location.lat), lng: parseFloat(location.lon) });
+        setInput(location.display_name);
+        setSuggestions([]);
+    };
+
     const fetchRoute = async () => {
         const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;
         if (start && endPoint) {
@@ -2710,24 +2716,14 @@ const Maps = () => {
         }
     };
 
-    const shareLocation = () => {
-        const locationText = `My live location: https://www.google.com/maps?q=${userLocation[0]},${userLocation[1]}`;
-        navigator.clipboard.writeText(locationText).then(() => {
-            alert("Live location copied to clipboard!");
-        }).catch(err => {
-            console.error("Failed to copy location:", err);
-        });
-    };
-
     return (
-        <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
-                <input type="text" value={fromInput} onChange={(e) => handleInputChange(e, setFromInput, setStartPoint)} placeholder="From Location" disabled={useLiveLocation} style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                <input type="text" value={toInput} onChange={(e) => handleInputChange(e, setToInput, setEndPoint)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer' }}>Show Route</button>
-                <button onClick={shareLocation} style={{ padding: '10px', borderRadius: '5px', background: '#ffc107', color: 'black', cursor: 'pointer' }}>Share Location</button>
-            </div>
-            <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }}>
+        <div>
+            <input type="text" value={fromInput} onChange={(e) => handleInputChange(e, setFromInput, setStartPoint)} placeholder="From Location" />
+            <ul>{suggestions.map((s, i) => (<li key={i} onClick={() => selectSuggestion(s, setStartPoint, setFromInput)}>{s.display_name}</li>))}</ul>
+            <input type="text" value={toInput} onChange={(e) => handleInputChange(e, setToInput, setEndPoint)} placeholder="To Location" />
+            <ul>{suggestions.map((s, i) => (<li key={i} onClick={() => selectSuggestion(s, setEndPoint, setToInput)}>{s.display_name}</li>))}</ul>
+            <button onClick={fetchRoute}>Show Route</button>
+            <MapContainer center={userLocation} zoom={13}>
                 <RecenterMap center={userLocation} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} icon={vehicleIcon}><Popup>Your Live Location</Popup></Marker>
@@ -2738,7 +2734,6 @@ const Maps = () => {
 };
 
 export default Maps;
-
 
 
 
