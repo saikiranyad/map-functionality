@@ -2612,7 +2612,6 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Vehicle icon with rotation
 const vehicleIcon = new L.Icon({
     iconUrl: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Red_Arrow_Up.svg/1024px-Red_Arrow_Up.svg.png',
     iconSize: [40, 40],
@@ -2620,7 +2619,6 @@ const vehicleIcon = new L.Icon({
     popupAnchor: [0, -40]
 });
 
-// Fix missing Leaflet marker icons
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
     iconRetinaUrl: markerIcon2x,
@@ -2654,6 +2652,7 @@ const Maps = () => {
     const [fromInput, setFromInput] = useState('');
     const [toInput, setToInput] = useState('');
     const [useLiveLocation, setUseLiveLocation] = useState(false);
+    const [suggestions, setSuggestions] = useState([]);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -2677,6 +2676,21 @@ const Maps = () => {
             }
         } catch (error) {
             console.error("Error fetching location:", error);
+        }
+    };
+
+    const handleInputChange = async (e, setInput) => {
+        const query = e.target.value;
+        setInput(query);
+        if (query.length > 2) {
+            try {
+                const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+                setSuggestions(response.data);
+            } catch (error) {
+                console.error("Error fetching suggestions:", error);
+            }
+        } else {
+            setSuggestions([]);
         }
     };
 
@@ -2709,21 +2723,23 @@ const Maps = () => {
     return (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
-                <input type="text" value={fromInput} onChange={(e) => setFromInput(e.target.value)} placeholder="From Location" disabled={useLiveLocation} style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                <button onClick={() => handleLocationFetch(fromInput, setStartPoint)} disabled={useLiveLocation} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set From</button>
-                <input type="text" value={toInput} onChange={(e) => setToInput(e.target.value)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                <button onClick={() => handleLocationFetch(toInput, setEndPoint)} style={{ padding: '10px', borderRadius: '5px', background: '#007bff', color: 'white', cursor: 'pointer' }}>Set To</button>
+                <input type="text" value={fromInput} onChange={(e) => handleInputChange(e, setFromInput)} placeholder="From Location" disabled={useLiveLocation} style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <input type="text" value={toInput} onChange={(e) => handleInputChange(e, setToInput)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
                 <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer' }}>Show Route</button>
-                <button onClick={() => setUseLiveLocation(!useLiveLocation)} style={{ padding: '10px', borderRadius: '5px', background: '#17a2b8', color: 'white', cursor: 'pointer' }}>{useLiveLocation ? "Disable Live Location" : "Live Location"}</button>
                 <button onClick={shareLocation} style={{ padding: '10px', borderRadius: '5px', background: '#ffc107', color: 'black', cursor: 'pointer' }}>Share Location</button>
             </div>
+            {suggestions.length > 0 && (
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                    {suggestions.map((s, index) => (
+                        <li key={index} style={{ cursor: 'pointer', padding: '5px' }} onClick={() => setFromInput(s.display_name)}>{s.display_name}</li>
+                    ))}
+                </ul>
+            )}
             <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }}>
                 <RecenterMap center={userLocation} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <Marker position={userLocation} icon={vehicleIcon} rotationAngle={userHeading}><Popup>Your Live Location</Popup></Marker>
-                {startPoint && <Marker position={startPoint}><Popup>Start Point</Popup></Marker>}
-                {endPoint && <Marker position={endPoint}><Popup>End Point</Popup></Marker>}
-                {route.length > 0 && <Polyline positions={route} color="blue" />}
+                <Marker position={userLocation} icon={vehicleIcon}><Popup>Your Live Location</Popup></Marker>
+                {route.length > 0 && <Polyline positions={route} color="red" />}
             </MapContainer>
         </div>
     );
