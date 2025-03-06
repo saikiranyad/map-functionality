@@ -239,8 +239,8 @@ const Maps7 = () => {
     };
 
     const fetchRoute = async () => {
-        const start = useLiveLocation ? userLocation : startPoint;
-        if (start && endPoint) {
+        const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;     
+         if (start && endPoint) {
             try {
                 const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
                 const routeData = response.data.routes[0];
