@@ -2695,22 +2695,28 @@ const Maps = () => {
     };
 
     const fetchRoute = async () => {
-        if (endPoint) {
-            const start = useLiveLocation ? userLocation : startPoint;
-            if (start) {
-                try {
-                    const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
-                    const routeData = response.data.routes[0];
-                    setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-                    setDistance((routeData.distance / 1000).toFixed(2));
-                    setDuration((routeData.duration / 60).toFixed(2));
-                } catch (error) {
-                    console.error("Error fetching route:", error);
-                }
+        const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;
+    
+        if (!start || !endPoint) {
+            console.error("Start or End location is missing.");
+            return;
+        }
+    
+        try {
+            const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+            
+            if (response.data.routes.length > 0) {
+                const routeData = response.data.routes[0];
+                setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                setDistance((routeData.distance / 1000).toFixed(2));
+                setDuration((routeData.duration / 60).toFixed(2));
+            } else {
+                console.error("No route found.");
             }
+        } catch (error) {
+            console.error("Error fetching route:", error);
         }
     };
-
     const shareLocation = () => {
         const locationText = `My live location: https://www.google.com/maps?q=${userLocation[0]},${userLocation[1]}`;
         navigator.clipboard.writeText(locationText).then(() => {
