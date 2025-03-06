@@ -3016,7 +3016,7 @@ const Maps = () => {
             }
     
             try {
-                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
                 const routeData = response.data.routes[0];
                 setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
                 setDistance((routeData.distance / 1000).toFixed(2));
