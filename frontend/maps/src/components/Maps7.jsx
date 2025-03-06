@@ -520,15 +520,27 @@ const Maps7 = () => {
     }, [useLiveLocation]);
 
     const fetchSuggestions = async (query, setSuggestions) => {
-        if (query.length > 2) {
-            try {
-                const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+        if (!query || query.length < 3) {
+            setSuggestions([]); // Clear suggestions for short queries
+            return;
+        }
+    
+        try {
+            const response = await axios.get(
+                `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=in&limit=5`,
+                {
+                    headers: { 'User-Agent': 'YourAppName/1.0 (your@email.com)' }
+                }
+            );
+    
+            if (response.data.length > 0) {
                 setSuggestions(response.data);
-            } catch (error) {
-                console.error("Error fetching suggestions:", error);
+            } else {
+                setSuggestions([]); // Clear suggestions if no results
             }
-        } else {
-            setSuggestions([]);
+        } catch (error) {
+            console.error("Error fetching suggestions:", error);
+            setSuggestions([]); // Reset suggestions on error
         }
     };
 
