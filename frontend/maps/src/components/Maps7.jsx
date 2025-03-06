@@ -442,7 +442,7 @@ const Maps7 = () => {
             <button onClick={fetchRoute}>Get Route</button>
             <p>Distance: {distance} km</p>
             <p>Duration: {duration} min</p>
-            <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%' }}>
+            <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%',cursor:'pointer' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start Point</Popup></Marker>}
                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End Point</Popup></Marker>}
