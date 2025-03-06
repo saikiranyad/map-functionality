@@ -32,10 +32,10 @@ function App() {
 
    {/* <Maps5/> */}
 
-   <Maps6/>
+   {/* <Maps6/> */}
 
-   {/* <Maps7/>
-   <Maps8/>
+   <Maps7/>
+   {/* <Maps8/>
 <Maps9/>
 <Maps10/>
 <Maps11/>
