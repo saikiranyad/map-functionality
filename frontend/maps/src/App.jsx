@@ -27,12 +27,12 @@ function App() {
 
    {/* <Maps3/> */}
 
-   <Maps4/>
+   {/* <Maps4/> */}
 
-{/* 
+
    <Maps5/>
 
-   <Maps6/>
+   {/* <Maps6/>
 
    <Maps7/>
    <Maps8/>
