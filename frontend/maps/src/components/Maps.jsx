@@ -3009,23 +3009,30 @@ const Maps = () => {
     const fetchRoute = async () => {
         if (endPoint) {
             const start = useLiveLocation ? userLocation : startPoint;
-            if (start) {
-                try {
-                    const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
-                    const routeData = response.data.routes[0];
-                    setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-                    setDistance((routeData.distance / 1000).toFixed(2));
-                    const totalMinutes = routeData.duration / 60;
-                    const hours = Math.floor(totalMinutes / 60);
-                    const minutes = Math.floor(totalMinutes % 60);
-                    setDuration(`${hours}:${minutes.toString().padStart(2, '0')}`);
-                    speak(`Your route is ${routeData.distance / 1000} kilometers and will take approximately ${hours}:${minutes.toString().padStart(2, '0')} minutes.`);
-                } catch (error) {
-                    console.error("Error fetching route:", error);
-                }
+            if (!start || !start[0] || !start[1]) {
+                console.error("Start location is not set properly.");
+                alert("Please set a valid start location before fetching the route.");
+                return;
+            }
+    
+            try {
+                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+                const routeData = response.data.routes[0];
+                setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+                setDistance((routeData.distance / 1000).toFixed(2));
+    
+                const totalMinutes = routeData.duration / 60;
+                const hours = Math.floor(totalMinutes / 60);
+                const minutes = Math.floor(totalMinutes % 60);
+                setDuration(`${hours}:${minutes.toString().padStart(2, '0')}`);
+    
+                speak(`Your route is ${routeData.distance / 1000} kilometers and will take approximately ${hours}:${minutes.toString().padStart(2, '0')} minutes.`);
+            } catch (error) {
+                console.error("Error fetching route:", error);
             }
         }
     };
+    
 
     return (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
