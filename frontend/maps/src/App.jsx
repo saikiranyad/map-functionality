@@ -22,7 +22,7 @@ function App() {
    <>
    {/* <Maps/> */}
 
-   <Maps2/>
+   {/* <Maps2/> */}
 
 
    {/* <Maps3/> */}
@@ -34,7 +34,7 @@ function App() {
 
    {/* <Maps6/> */}
 
-   {/* <Maps7/> */}
+   <Maps7/>
    {/* <Maps8/>
 <Maps9/>
 <Maps10/>
