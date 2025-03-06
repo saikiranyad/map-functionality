@@ -2667,19 +2667,20 @@ const Maps = () => {
         }
     }, []);
 
-    const handleLocationFetch = async (query, setFunction) => {
+    const handleLocationFetch = async (query, setFunction, setInput) => {
         try {
             const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
             if (response.data.length > 0) {
                 const location = response.data[0];
                 setFunction({ lat: parseFloat(location.lat), lng: parseFloat(location.lon) });
+                setInput(location.display_name);
             }
         } catch (error) {
             console.error("Error fetching location:", error);
         }
     };
 
-    const handleInputChange = async (e, setInput) => {
+    const handleInputChange = async (e, setInput, setFunction) => {
         const query = e.target.value;
         setInput(query);
         if (query.length > 2) {
@@ -2696,27 +2697,19 @@ const Maps = () => {
 
     const fetchRoute = async () => {
         const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;
-    
-        if (!start || !endPoint) {
-            console.error("Start or End location is missing.");
-            return;
-        }
-    
-        try {
-            const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
-            
-            if (response.data.routes.length > 0) {
+        if (start && endPoint) {
+            try {
+                const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
                 const routeData = response.data.routes[0];
                 setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
                 setDistance((routeData.distance / 1000).toFixed(2));
                 setDuration((routeData.duration / 60).toFixed(2));
-            } else {
-                console.error("No route found.");
+            } catch (error) {
+                console.error("Error fetching route:", error);
             }
-        } catch (error) {
-            console.error("Error fetching route:", error);
         }
     };
+
     const shareLocation = () => {
         const locationText = `My live location: https://www.google.com/maps?q=${userLocation[0]},${userLocation[1]}`;
         navigator.clipboard.writeText(locationText).then(() => {
@@ -2729,23 +2722,16 @@ const Maps = () => {
     return (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
             <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
-                <input type="text" value={fromInput} onChange={(e) => handleInputChange(e, setFromInput)} placeholder="From Location" disabled={useLiveLocation} style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
-                <input type="text" value={toInput} onChange={(e) => handleInputChange(e, setToInput)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <input type="text" value={fromInput} onChange={(e) => handleInputChange(e, setFromInput, setStartPoint)} placeholder="From Location" disabled={useLiveLocation} style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
+                <input type="text" value={toInput} onChange={(e) => handleInputChange(e, setToInput, setEndPoint)} placeholder="To Location" style={{ padding: '10px', width: '250px', borderRadius: '8px', border: '1px solid #ccc' }} />
                 <button onClick={fetchRoute} style={{ padding: '10px', borderRadius: '5px', background: '#28a745', color: 'white', cursor: 'pointer' }}>Show Route</button>
                 <button onClick={shareLocation} style={{ padding: '10px', borderRadius: '5px', background: '#ffc107', color: 'black', cursor: 'pointer' }}>Share Location</button>
             </div>
-            {suggestions.length > 0 && (
-                <ul style={{ listStyle: 'none', padding: 0 }}>
-                    {suggestions.map((s, index) => (
-                        <li key={index} style={{ cursor: 'pointer', padding: '5px' }} onClick={() => setFromInput(s.display_name)}>{s.display_name}</li>
-                    ))}
-                </ul>
-            )}
             <MapContainer center={userLocation} zoom={13} style={{ height: '80vh', width: '100%', borderRadius: '10px' }}>
                 <RecenterMap center={userLocation} />
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} icon={vehicleIcon}><Popup>Your Live Location</Popup></Marker>
-                {route.length > 0 && <Polyline positions={route} color="red" />}
+                {route.length > 0 && <Polyline positions={route} color="blue" />}
             </MapContainer>
         </div>
     );
