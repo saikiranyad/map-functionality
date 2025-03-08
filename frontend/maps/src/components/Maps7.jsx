@@ -486,6 +486,12 @@ const RecenterMap = ({ center }) => {
     }, [center, map]);
     return null;
 };
+const speak = (text) => {
+    const synth = window.speechSynthesis;
+    const utterance = new SpeechSynthesisUtterance(text);
+    synth.speak(utterance);
+};
+
 
 const Maps7 = () => {
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
@@ -561,7 +567,11 @@ const Maps7 = () => {
                 const routeData = response.data.routes[0];
                 setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
                 setDistance((routeData.distance / 1000).toFixed(2));
-                setDuration((routeData.duration / 60).toFixed(2));
+                const hours = Math.floor(totalMinutes / 60);
+const minutes = Math.floor(totalMinutes % 60);
+setDuration(`${hours}:${minutes.toString().padStart(2, '0')}`);
+                speak(`Your route is ${routeData.distance / 1000} kilometers and will take approximately ${hours}:${minutes.toString().padStart(2, '0')} minutes.`);
+               
             } catch (error) {
                 console.error("Error fetching route:", error);
             }
