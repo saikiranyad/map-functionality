@@ -1356,7 +1356,7 @@ const Maps7 = () => {
 
     return (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
-            <input type="text" placeholder="From" value={fromInput} onChange={(e) =>{setFromInput(e.target.value) fetchLocation(e.target.value, setStartPoint, setFromInput, setFromSuggestions)}} />
+            <input type="text" placeholder="From" value={fromInput} onChange={(e) =>{setFromInput(e.target.value); fetchLocation(e.target.value, setStartPoint, setFromInput, setFromSuggestions)}} />
             <ul>
                 {fromSuggestions.map((suggestion, index) => (
                     <li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>
@@ -1365,7 +1365,7 @@ const Maps7 = () => {
                 ))}
             </ul>
             <br />
-            <input type="text" placeholder="To" value={toInput} onChange={(e) =>{setToInput(e.target.value) fetchLocation(e.target.value, setEndPoint, setToInput, setToSuggestions)}} />
+            <input type="text" placeholder="To" value={toInput} onChange={(e) =>{setToInput(e.target.value); fetchLocation(e.target.value, setEndPoint, setToInput, setToSuggestions)}} />
             <ul>
                 {toSuggestions.map((suggestion, index) => (
                     <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
