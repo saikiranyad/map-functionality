@@ -1341,9 +1341,22 @@ const Maps7 = () => {
         }
     };
 
+    const MapClickHandler = () => {
+        useMapEvents({
+            click(e) {
+                if (!startPoint) {
+                    setStartPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+                } else if (!endPoint) {
+                    setEndPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+                }
+            },
+        });
+        return null;
+    };
+
     return (
         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
-            <input type="text" placeholder="From" value={fromInput} onChange={(e) =>{setFromInput(e.target.value); fetchLocation(e.target.value, setStartPoint, setFromInput, setFromSuggestions)}} />
+            <input type="text" placeholder="From" value={fromInput} onChange={(e) =>{setFromInput(e.target.value) fetchLocation(e.target.value, setStartPoint, setFromInput, setFromSuggestions)}} />
             <ul>
                 {fromSuggestions.map((suggestion, index) => (
                     <li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>
@@ -1352,10 +1365,10 @@ const Maps7 = () => {
                 ))}
             </ul>
             <br />
-            <input type="text" placeholder="To" value={toInput} onChange={(e) =>{ setToInput(e.target.value);  fetchLocation(e.target.value, setEndPoint, setToInput, setToSuggestions)}} />
+            <input type="text" placeholder="To" value={toInput} onChange={(e) =>{setToInput(e.target.value) fetchLocation(e.target.value, setEndPoint, setToInput, setToSuggestions)}} />
             <ul>
                 {toSuggestions.map((suggestion, index) => (
-                    <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)} style={{ cursor: 'pointer' }}>
+                    <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
                         {suggestion.display_name}
                     </li>
                 ))}
@@ -1371,14 +1384,16 @@ const Maps7 = () => {
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
-                {route.length > 0 && <Polyline positions={route} color="blue" />}
+                {route.length > 0 && <Polyline positions={route} color="red" />}
                 <RecenterMap center={userLocation} />
+                <MapClickHandler />
             </MapContainer>
         </div>
     );
 };
 
 export default Maps7;
+
 
 
 
