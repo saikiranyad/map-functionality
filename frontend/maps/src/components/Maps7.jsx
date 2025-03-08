@@ -1067,7 +1067,7 @@ const Maps7 = () => {
                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
                 {route.length > 0 && <Polyline positions={route} color="blue" />}
-                {isRiding && ridePath.length > 1 && <Polyline positions={ridePath} color="red" />}
+                {isRiding && ridePath.length > 1 && <Polyline positions={ridePath} color="yellow" />}
                 <RecenterMap center={userLocation} />
             </MapContainer>
         </div>
