@@ -894,194 +894,6 @@
 
 
 
-// import React, { useEffect, useState } from 'react';
-// import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
-// import 'leaflet/dist/leaflet.css';
-// import io from 'socket.io-client';
-// import L from 'leaflet';
-// import axios from 'axios';
-
-// import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-// import markerIcon from 'leaflet/dist/images/marker-icon.png';
-// import markerShadow from 'leaflet/dist/images/marker-shadow.png';
-
-// // Fix missing Leaflet marker icons
-// delete L.Icon.Default.prototype._getIconUrl;
-// L.Icon.Default.mergeOptions({
-//     iconRetinaUrl: markerIcon2x,
-//     iconUrl: markerIcon,
-//     shadowUrl: markerShadow,
-// });
-
-// const socket = io('https://map-functionality.onrender.com', {
-//     transports: ['websocket'],
-//     reconnection: true,
-//     reconnectionAttempts: 5,
-//     reconnectionDelay: 3000
-// });
-
-// const RecenterMap = ({ center }) => {
-//     const map = useMap();
-//     useEffect(() => {
-//         map.setView(center, map.getZoom());
-//     }, [center, map]);
-//     return null;
-// };
-
-// const speak = (text) => {
-//     const synth = window.speechSynthesis;
-//     const utterance = new SpeechSynthesisUtterance(text);
-//     synth.speak(utterance);
-// };
-
-// const Maps7 = () => {
-//     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
-//     const [startPoint, setStartPoint] = useState(null);
-//     const [endPoint, setEndPoint] = useState(null);
-//     const [route, setRoute] = useState([]);
-//     const [distance, setDistance] = useState(null);
-//     const [duration, setDuration] = useState(null);
-//     const [fromInput, setFromInput] = useState('');
-//     const [toInput, setToInput] = useState('');
-//     const [useLiveLocation, setUseLiveLocation] = useState(false);
-//     const [fromSuggestions, setFromSuggestions] = useState([]);
-//     const [toSuggestions, setToSuggestions] = useState([]);
-
-//     // 🚀 New States for Ride Tracking
-//     const [isRiding, setIsRiding] = useState(false);
-//     const [ridePath, setRidePath] = useState([]);
-
-//     useEffect(() => {
-//         if (navigator.geolocation) {
-//             const watchId = navigator.geolocation.watchPosition(
-//                 (position) => {
-//                     const { latitude, longitude } = position.coords;
-//                     setUserLocation([latitude, longitude]);
-//                     socket.emit('updateLocation', { lat: latitude, lng: longitude });
-
-//                     if (useLiveLocation) {
-
-//                         setStartPoint({ lat: latitude, lng: longitude });
-//                         speak(`You are at ${{lat: latitude, lng: longitude}}`);
-//                     }
-
-//                     if (isRiding) {
-//                         setRidePath(prevPath => [...prevPath, [latitude, longitude]]);
-//                     }
-//                 },
-//                 (error) => {
-//                     console.error("Error getting location:", error);
-//                 }
-//             );
-
-//             return () => navigator.geolocation.clearWatch(watchId);
-//         }
-//     }, [useLiveLocation, isRiding]);
-
-//     const fetchLocation = async (query, setPoint, setInput, setSuggestions) => {
-//         try {
-//             setInput(query);  // Ensure input updates immediately
-//             const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
-//             setSuggestions(response.data);
-//         } catch (error) {
-//             console.error("Error fetching location:", error);
-//         }
-//     };
-
-//     const selectLocation = (location, setPoint, setInput, setSuggestions) => {
-//         setPoint({ lat: parseFloat(location.lat), lng: parseFloat(location.lon) });
-//         setInput(location.display_name);
-//         setSuggestions([]);
-//     };
-
-//     const fetchRoute = async () => {
-//         const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;
-//         if (start && endPoint) {
-//             try {
-//                 const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
-//                 const routeData = response.data.routes[0];
-//                 setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-//                 setDistance((routeData.distance / 1000).toFixed(2));
-//                 const totalMinutes = routeData.duration / 60;
-//                 const hours = Math.floor(totalMinutes / 60);
-//                 const minutes = Math.floor(totalMinutes % 60);
-//                 setDuration(`${hours}h ${minutes}m`);
-//                 speak(`Your route is ${routeData.distance / 1000} kilometers and will take approximately ${hours} hours and ${minutes} minutes.`);
-//             } catch (error) {
-//                 console.error("Error fetching route:", error);
-//             }
-//         }
-//     };
-
-//     return (
-//         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
-//             <input 
-//                 type="text" 
-//                 placeholder="From" 
-//                 value={fromInput} 
-//                 onChange={(e) => fetchLocation(e.target.value, setStartPoint, setFromInput, setFromSuggestions)} 
-//             />
-//             <ul>
-//                 {fromSuggestions.map((suggestion, index) => (
-//                     <li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>
-//                         {suggestion.display_name}
-//                     </li>
-//                 ))}
-//             </ul>
-
-//             <br />
-
-//             <input 
-//                 type="text" 
-//                 placeholder="To" 
-//                 value={toInput} 
-//                 onChange={(e) => fetchLocation(e.target.value, setEndPoint, setToInput, setToSuggestions)} 
-//             />
-//             <ul>
-//                 {toSuggestions.map((suggestion, index) => (
-//                     <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
-//                         {suggestion.display_name}
-//                     </li>
-//                 ))}
-//             </ul>
-
-//             <br />
-
-//             <label>
-//                 <input type="checkbox" checked={useLiveLocation} onChange={() => setUseLiveLocation(!useLiveLocation)} /> Use Live Location
-//             </label>
-
-//             <br />
-//             <button onClick={fetchRoute}>Get Route</button>
-
-//             <br />
-
-//             <button onClick={() => setIsRiding(true)} disabled={isRiding}>Start Ride</button>
-//             <button onClick={() => setIsRiding(false)} disabled={!isRiding}>End Ride</button>
-
-//             <p>Distance: {distance} km</p>
-//             <p>Duration: {duration}</p>
-
-//             <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%', cursor: 'pointer' }}>
-//                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-//                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
-//                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
-//                 {route.length > 0 && <Polyline positions={route} color="blue" />}
-//                 {isRiding && ridePath.length > 1 && <Polyline positions={ridePath} color="yellow" />}
-//                 <RecenterMap center={userLocation} />
-//             </MapContainer>
-//         </div>
-//     );
-// };
-
-// export default Maps7;
-
-
-
-
-
-
-
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -1134,20 +946,23 @@ const Maps7 = () => {
     const [useLiveLocation, setUseLiveLocation] = useState(false);
     const [fromSuggestions, setFromSuggestions] = useState([]);
     const [toSuggestions, setToSuggestions] = useState([]);
+
+    // 🚀 New States for Ride Tracking
     const [isRiding, setIsRiding] = useState(false);
     const [ridePath, setRidePath] = useState([]);
-    const [currentLocationText, setCurrentLocationText] = useState(''); // 📍 New state for location text
 
     useEffect(() => {
         if (navigator.geolocation) {
             const watchId = navigator.geolocation.watchPosition(
-                async (position) => {
+                (position) => {
                     const { latitude, longitude } = position.coords;
                     setUserLocation([latitude, longitude]);
                     socket.emit('updateLocation', { lat: latitude, lng: longitude });
 
                     if (useLiveLocation) {
+
                         setStartPoint({ lat: latitude, lng: longitude });
+                        speak(`You are at ${{lat: latitude, lng: longitude}}`);
                     }
 
                     if (isRiding) {
@@ -1165,7 +980,7 @@ const Maps7 = () => {
 
     const fetchLocation = async (query, setPoint, setInput, setSuggestions) => {
         try {
-            setInput(query);
+            setInput(query);  // Ensure input updates immediately
             const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
             setSuggestions(response.data);
         } catch (error) {
@@ -1195,22 +1010,6 @@ const Maps7 = () => {
             } catch (error) {
                 console.error("Error fetching route:", error);
             }
-        }
-    };
-
-    const endRide = async () => {
-        setIsRiding(false);
-        setRidePath([]); // Reset the ride path
-
-        try {
-            const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation[0]}&lon=${userLocation[1]}`);
-            const locationName = response.data.display_name;
-            setCurrentLocationText(`You are at ${locationName}`);
-            speak(`You are at ${locationName}`);
-        } catch (error) {
-            console.error("Error fetching location name:", error);
-            setCurrentLocationText("Location not found");
-            speak("Location not found");
         }
     };
 
@@ -1258,18 +1057,17 @@ const Maps7 = () => {
             <br />
 
             <button onClick={() => setIsRiding(true)} disabled={isRiding}>Start Ride</button>
-            <button onClick={endRide} disabled={!isRiding}>End Ride</button>
+            <button onClick={() => setIsRiding(false)} disabled={!isRiding}>End Ride</button>
 
             <p>Distance: {distance} km</p>
             <p>Duration: {duration}</p>
-            <p><b>{currentLocationText}</b></p> {/* 📍 Show current location when ride ends */}
 
             <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%', cursor: 'pointer' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
                 {route.length > 0 && <Polyline positions={route} color="blue" />}
-                {isRiding && ridePath.length > 1 && <Polyline positions={ridePath} color="red" />}
+                {isRiding && ridePath.length > 1 && <Polyline positions={ridePath} color="yellow" />}
                 <RecenterMap center={userLocation} />
             </MapContainer>
         </div>
@@ -1277,6 +1075,208 @@ const Maps7 = () => {
 };
 
 export default Maps7;
+
+
+
+
+
+
+
+// import React, { useEffect, useState } from 'react';
+// import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+// import 'leaflet/dist/leaflet.css';
+// import io from 'socket.io-client';
+// import L from 'leaflet';
+// import axios from 'axios';
+
+// import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+// import markerIcon from 'leaflet/dist/images/marker-icon.png';
+// import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// // Fix missing Leaflet marker icons
+// delete L.Icon.Default.prototype._getIconUrl;
+// L.Icon.Default.mergeOptions({
+//     iconRetinaUrl: markerIcon2x,
+//     iconUrl: markerIcon,
+//     shadowUrl: markerShadow,
+// });
+
+// const socket = io('https://map-functionality.onrender.com', {
+//     transports: ['websocket'],
+//     reconnection: true,
+//     reconnectionAttempts: 5,
+//     reconnectionDelay: 3000
+// });
+
+// const RecenterMap = ({ center }) => {
+//     const map = useMap();
+//     useEffect(() => {
+//         map.setView(center, map.getZoom());
+//     }, [center, map]);
+//     return null;
+// };
+
+// const speak = (text) => {
+//     const synth = window.speechSynthesis;
+//     const utterance = new SpeechSynthesisUtterance(text);
+//     synth.speak(utterance);
+// };
+
+// const Maps7 = () => {
+//     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
+//     const [startPoint, setStartPoint] = useState(null);
+//     const [endPoint, setEndPoint] = useState(null);
+//     const [route, setRoute] = useState([]);
+//     const [distance, setDistance] = useState(null);
+//     const [duration, setDuration] = useState(null);
+//     const [fromInput, setFromInput] = useState('');
+//     const [toInput, setToInput] = useState('');
+//     const [useLiveLocation, setUseLiveLocation] = useState(false);
+//     const [fromSuggestions, setFromSuggestions] = useState([]);
+//     const [toSuggestions, setToSuggestions] = useState([]);
+//     const [isRiding, setIsRiding] = useState(false);
+//     const [ridePath, setRidePath] = useState([]);
+//     const [currentLocationText, setCurrentLocationText] = useState(''); // 📍 New state for location text
+
+//     useEffect(() => {
+//         if (navigator.geolocation) {
+//             const watchId = navigator.geolocation.watchPosition(
+//                 async (position) => {
+//                     const { latitude, longitude } = position.coords;
+//                     setUserLocation([latitude, longitude]);
+//                     socket.emit('updateLocation', { lat: latitude, lng: longitude });
+
+//                     if (useLiveLocation) {
+//                         setStartPoint({ lat: latitude, lng: longitude });
+//                     }
+
+//                     if (isRiding) {
+//                         setRidePath(prevPath => [...prevPath, [latitude, longitude]]);
+//                     }
+//                 },
+//                 (error) => {
+//                     console.error("Error getting location:", error);
+//                 }
+//             );
+
+//             return () => navigator.geolocation.clearWatch(watchId);
+//         }
+//     }, [useLiveLocation, isRiding]);
+
+//     const fetchLocation = async (query, setPoint, setInput, setSuggestions) => {
+//         try {
+//             setInput(query);
+//             const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+//             setSuggestions(response.data);
+//         } catch (error) {
+//             console.error("Error fetching location:", error);
+//         }
+//     };
+
+//     const selectLocation = (location, setPoint, setInput, setSuggestions) => {
+//         setPoint({ lat: parseFloat(location.lat), lng: parseFloat(location.lon) });
+//         setInput(location.display_name);
+//         setSuggestions([]);
+//     };
+
+//     const fetchRoute = async () => {
+//         const start = useLiveLocation ? { lat: userLocation[0], lng: userLocation[1] } : startPoint;
+//         if (start && endPoint) {
+//             try {
+//                 const response = await axios.get(`https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`);
+//                 const routeData = response.data.routes[0];
+//                 setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
+//                 setDistance((routeData.distance / 1000).toFixed(2));
+//                 const totalMinutes = routeData.duration / 60;
+//                 const hours = Math.floor(totalMinutes / 60);
+//                 const minutes = Math.floor(totalMinutes % 60);
+//                 setDuration(`${hours}h ${minutes}m`);
+//                 speak(`Your route is ${routeData.distance / 1000} kilometers and will take approximately ${hours} hours and ${minutes} minutes.`);
+//             } catch (error) {
+//                 console.error("Error fetching route:", error);
+//             }
+//         }
+//     };
+
+//     const endRide = async () => {
+//         setIsRiding(false);
+//         setRidePath([]); // Reset the ride path
+
+//         try {
+//             const response = await axios.get(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${userLocation[0]}&lon=${userLocation[1]}`);
+//             const locationName = response.data.display_name;
+//             setCurrentLocationText(`You are at ${locationName}`);
+//             speak(`You are at ${locationName}`);
+//         } catch (error) {
+//             console.error("Error fetching location name:", error);
+//             setCurrentLocationText("Location not found");
+//             speak("Location not found");
+//         }
+//     };
+
+//     return (
+//         <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
+//             <input 
+//                 type="text" 
+//                 placeholder="From" 
+//                 value={fromInput} 
+//                 onChange={(e) => fetchLocation(e.target.value, setStartPoint, setFromInput, setFromSuggestions)} 
+//             />
+//             <ul>
+//                 {fromSuggestions.map((suggestion, index) => (
+//                     <li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>
+//                         {suggestion.display_name}
+//                     </li>
+//                 ))}
+//             </ul>
+
+//             <br />
+
+//             <input 
+//                 type="text" 
+//                 placeholder="To" 
+//                 value={toInput} 
+//                 onChange={(e) => fetchLocation(e.target.value, setEndPoint, setToInput, setToSuggestions)} 
+//             />
+//             <ul>
+//                 {toSuggestions.map((suggestion, index) => (
+//                     <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
+//                         {suggestion.display_name}
+//                     </li>
+//                 ))}
+//             </ul>
+
+//             <br />
+
+//             <label>
+//                 <input type="checkbox" checked={useLiveLocation} onChange={() => setUseLiveLocation(!useLiveLocation)} /> Use Live Location
+//             </label>
+
+//             <br />
+//             <button onClick={fetchRoute}>Get Route</button>
+
+//             <br />
+
+//             <button onClick={() => setIsRiding(true)} disabled={isRiding}>Start Ride</button>
+//             <button onClick={endRide} disabled={!isRiding}>End Ride</button>
+
+//             <p>Distance: {distance} km</p>
+//             <p>Duration: {duration}</p>
+//             <p><b>{currentLocationText}</b></p> {/* 📍 Show current location when ride ends */}
+
+//             <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%', cursor: 'pointer' }}>
+//                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+//                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
+//                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
+//                 {route.length > 0 && <Polyline positions={route} color="blue" />}
+//                 {isRiding && ridePath.length > 1 && <Polyline positions={ridePath} color="red" />}
+//                 <RecenterMap center={userLocation} />
+//             </MapContainer>
+//         </div>
+//     );
+// };
+
+// export default Maps7;
 
 
 
