@@ -1290,20 +1290,6 @@ const RecenterMap = ({ center }) => {
     return null;
 };
 
-const MapClickHandler = ({ setStartPoint, setEndPoint, startPoint }) => {
-    useMapEvents({
-        click(e) {
-            const { lat, lng } = e.latlng;
-            if (!startPoint) {
-                setStartPoint({ lat, lng });
-            } else {
-                setEndPoint({ lat, lng });
-            }
-        },
-    });
-    return null;
-};
-
 const Maps7 = () => {
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
     const [startPoint, setStartPoint] = useState(null);
@@ -1375,12 +1361,14 @@ const Maps7 = () => {
                 ))}
             </ul>
             <br />
+            <button onClick={() => setStartPoint(userLocation)}>Set Start Point</button>
+            <button onClick={() => setEndPoint(userLocation)}>Set End Point</button>
+            <br />
             <button onClick={fetchRoute}>Get Route</button>
             <p>Distance: {distance} km</p>
             <p>Duration: {duration}</p>
             <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <MapClickHandler setStartPoint={setStartPoint} setEndPoint={setEndPoint} startPoint={startPoint} />
                 {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
                 {route.length > 0 && <Polyline positions={route} color="blue" />}
