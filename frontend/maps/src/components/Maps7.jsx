@@ -1444,142 +1444,683 @@
 
 
 
-import React, { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import io from 'socket.io-client';
-import axios from 'axios';
+"use client"
 
-const socket = io('https://map-functionality.onrender.com', {
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 3000
-});
+import { useEffect, useState, useCallback } from "react"
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from "react-leaflet"
+import "leaflet/dist/leaflet.css"
+import L from "leaflet"
+import axios from "axios"
+import { io } from "socket.io-client"
 
-const speak = (message) => {
-    const speech = new SpeechSynthesisUtterance(message);
-    speech.lang = 'en-US';
-    speech.rate = 1;
-    window.speechSynthesis.speak(speech);
-};
+// Fix Leaflet marker icons
+delete L.Icon.Default.prototype._getIconUrl
+L.Icon.Default.mergeOptions({
+  iconUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon.png",
+  iconRetinaUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-icon-2x.png",
+  shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+})
 
+// Component to recenter the map
 const RecenterMap = ({ center }) => {
-    const map = useMap();
-    useEffect(() => {
-        map.setView(center, map.getZoom());
-    }, [center, map]);
-    return null;
-};
+  const map = useMap()
+  useEffect(() => {
+    if (center && center[0] && center[1]) {
+      map.setView(center, map.getZoom())
+    }
+  }, [center, map])
+  return null
+}
+
+// Icons for the UI
+const MapPinIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px" }}
+  >
+    <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"></path>
+    <circle cx="12" cy="10" r="3"></circle>
+  </svg>
+)
+
+const NavigationIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px" }}
+  >
+    <polygon points="3 11 22 2 13 21 11 13 3 11"></polygon>
+  </svg>
+)
+
+const SearchIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px" }}
+  >
+    <circle cx="11" cy="11" r="8"></circle>
+    <path d="m21 21-4.3-4.3"></path>
+  </svg>
+)
+
+const LocateFixedIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="12"
+    height="12"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "4px" }}
+  >
+    <line x1="2" x2="5" y1="12" y2="12"></line>
+    <line x1="19" x2="22" y1="12" y2="12"></line>
+    <line x1="12" x2="12" y1="2" y2="5"></line>
+    <line x1="12" x2="12" y1="19" y2="22"></line>
+    <circle cx="12" cy="12" r="7"></circle>
+    <circle cx="12" cy="12" r="3"></circle>
+  </svg>
+)
 
 const Maps7 = () => {
-    const [userLocation, setUserLocation] = useState([51.505, -0.09]);
-    const [endPoint, setEndPoint] = useState(null);
-    const [route, setRoute] = useState([]);
-    const [distance, setDistance] = useState(null);
-    const [duration, setDuration] = useState(null);
-    const [fromInput, setFromInput] = useState('');
-    const [toInput, setToInput] = useState('');
-    const [fromSuggestions, setFromSuggestions] = useState([]);
-    const [toSuggestions, setToSuggestions] = useState([]);
+  // State management
+  const [userLocation, setUserLocation] = useState([51.505, -0.09])
+  const [startPoint, setStartPoint] = useState(null)
+  const [endPoint, setEndPoint] = useState(null)
+  const [route, setRoute] = useState([])
+  const [distance, setDistance] = useState(null)
+  const [duration, setDuration] = useState(null)
+  const [fromInput, setFromInput] = useState("")
+  const [toInput, setToInput] = useState("")
+  const [fromSuggestions, setFromSuggestions] = useState([])
+  const [toSuggestions, setToSuggestions] = useState([])
+  const [error, setError] = useState(null)
+  const [socketConnected, setSocketConnected] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-    useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition((position) => {
-                const { latitude, longitude } = position.coords;
-                setUserLocation([latitude, longitude]);
-                socket.emit('updateLocation', { lat: latitude, lng: longitude });
-                checkIfReachedDestination(latitude, longitude);
-            });
+  // Initialize socket connection
+  useEffect(() => {
+    const socket = io("https://map-functionality.onrender.com", {
+      transports: ["websocket"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 3000,
+    })
+
+    socket.on("connect", () => {
+      setSocketConnected(true)
+      setError(null)
+    })
+
+    socket.on("disconnect", () => {
+      setSocketConnected(false)
+    })
+
+    socket.on("connect_error", () => {
+      setError("Failed to connect to location service")
+    })
+
+    // Get user location
+    if (navigator.geolocation) {
+      const watchId = navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords
+          setUserLocation([latitude, longitude])
+          if (socket.connected) {
+            socket.emit("updateLocation", { lat: latitude, lng: longitude })
+          }
+        },
+        (err) => {
+          setError(`Geolocation error: ${err.message}`)
+        },
+        { enableHighAccuracy: true },
+      )
+
+      return () => {
+        navigator.geolocation.clearWatch(watchId)
+        socket.disconnect()
+      }
+    } else {
+      setError("Geolocation is not supported by your browser")
+    }
+  }, [])
+
+  // Fetch location suggestions from OpenStreetMap with debounce
+  const fetchLocation = useCallback(async (query, setSuggestions) => {
+    if (!query || query.length < 3) {
+      setSuggestions([])
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5`,
+        { headers: { "Accept-Language": "en-US,en;q=0.9" } },
+      )
+      setSuggestions(response.data)
+      setError(null)
+    } catch (error) {
+      console.error("Error fetching location:", error)
+      setError("Failed to fetch location suggestions")
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  // Debounce function for location search
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (fromInput.length >= 3) {
+        fetchLocation(fromInput, setFromSuggestions)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [fromInput, fetchLocation])
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (toInput.length >= 3) {
+        fetchLocation(toInput, setToSuggestions)
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [toInput, fetchLocation])
+
+  // Select a location from suggestions
+  const selectLocation = (location, setPoint, setInput, setSuggestions) => {
+    const selectedPoint = { lat: Number.parseFloat(location.lat), lng: Number.parseFloat(location.lon) }
+    setPoint(selectedPoint)
+    setInput(location.display_name)
+    setSuggestions([])
+  }
+
+  // Fetch route between start and end points
+  const fetchRoute = async () => {
+    if (!startPoint || !endPoint) {
+      setError("Please set both start and end points")
+      return
+    }
+
+    try {
+      setLoading(true)
+      const response = await axios.get(
+        `https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`,
+      )
+
+      if (response.data.code !== "Ok") {
+        throw new Error("Route not found")
+      }
+
+      const routeData = response.data.routes[0]
+      setRoute(routeData.geometry.coordinates.map((coord) => [coord[1], coord[0]]))
+      setDistance((routeData.distance / 1000).toFixed(2))
+
+      // Format duration
+      const hours = Math.floor(routeData.duration / 3600)
+      const minutes = Math.floor((routeData.duration % 3600) / 60)
+      setDuration(`${hours}h ${minutes}m`)
+
+      setError(null)
+    } catch (error) {
+      console.error("Error fetching route:", error)
+      setError("Failed to calculate route. Please try different locations.")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Handle map clicks for setting start and end points
+  const MapClickHandler = () => {
+    useMapEvents({
+      click(e) {
+        if (!startPoint) {
+          setStartPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
+          // Try to get address for the clicked location
+          fetchLocationName(e.latlng.lat, e.latlng.lng, setFromInput)
+        } else if (!endPoint) {
+          setEndPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
+          // Try to get address for the clicked location
+          fetchLocationName(e.latlng.lat, e.latlng.lng, setToInput)
         }
-    }, [endPoint]);
+      },
+    })
+    return null
+  }
 
-    const fetchLocation = async (query, setSuggestions) => {
-        try {
-            const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
-            setSuggestions(response.data);
-        } catch (error) {
-            console.error("Error fetching location:", error);
-        }
-    };
+  // Reverse geocoding to get location name from coordinates
+  const fetchLocationName = async (lat, lng, setInput) => {
+    try {
+      const response = await axios.get(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`,
+        { headers: { "Accept-Language": "en-US,en;q=0.9" } },
+      )
+      setInput(response.data.display_name)
+    } catch (error) {
+      console.error("Error fetching location name:", error)
+      setInput(`${lat.toFixed(6)}, ${lng.toFixed(6)}`)
+    }
+  }
 
-    const selectLocation = (location, setPoint, setInput, setSuggestions) => {
-        const selectedPoint = { lat: parseFloat(location.lat), lng: parseFloat(location.lon) };
-        setPoint(selectedPoint);
-        setInput(location.display_name);
-        setSuggestions([]);
-        if (userLocation && endPoint) fetchRoute(userLocation, endPoint);
-    };
+  // Reset route and points
+  const resetRoute = () => {
+    setStartPoint(null)
+    setEndPoint(null)
+    setRoute([])
+    setDistance(null)
+    setDuration(null)
+    setFromInput("")
+    setToInput("")
+    setFromSuggestions([])
+    setToSuggestions([])
+  }
 
-    const fetchRoute = async (start, end) => {
-        try {
-            const response = await axios.get(
-                `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end.lng},${end.lat}?overview=full&geometries=geojson`
-            );
-            const routeData = response.data.routes[0];
-            setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-            setDistance((routeData.distance / 1000).toFixed(2));
-            setDuration(`${Math.floor(routeData.duration / 3600)}h ${Math.floor((routeData.duration % 3600) / 60)}m`);
-            speak(`Route set. Estimated distance is ${distance} kilometers and duration is ${duration}.`);
-        } catch (error) {
-            console.error("Error fetching route:", error);
-        }
-    };
+  // Styles
+  const styles = {
+    container: {
+      maxWidth: "1200px",
+      margin: "0 auto",
+      padding: "16px",
+    },
+    card: {
+      backgroundColor: "white",
+      borderRadius: "8px",
+      boxShadow: "0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.24)",
+      marginBottom: "16px",
+    },
+    cardHeader: {
+      padding: "16px",
+      borderBottom: "1px solid #eee",
+    },
+    cardTitle: {
+      fontSize: "18px",
+      fontWeight: "bold",
+      margin: 0,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
+    },
+    cardContent: {
+      padding: "16px",
+    },
+    alert: {
+      backgroundColor: "#fee2e2",
+      color: "#b91c1c",
+      padding: "12px",
+      borderRadius: "4px",
+      marginBottom: "16px",
+    },
+    inputContainer: {
+      position: "relative",
+      marginBottom: "16px",
+    },
+    inputWrapper: {
+      display: "flex",
+      alignItems: "center",
+    },
+    input: {
+      width: "100%",
+      padding: "8px 12px",
+      border: "1px solid #d1d5db",
+      borderRadius: "4px",
+      fontSize: "14px",
+    },
+    suggestionCard: {
+      position: "absolute",
+      zIndex: 10,
+      width: "100%",
+      marginTop: "4px",
+      maxHeight: "240px",
+      overflow: "auto",
+      backgroundColor: "white",
+      borderRadius: "4px",
+      boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)",
+    },
+    suggestionList: {
+      margin: 0,
+      padding: 0,
+      listStyle: "none",
+    },
+    suggestionItem: {
+      padding: "8px 12px",
+      borderBottom: "1px solid #eee",
+      cursor: "pointer",
+      fontSize: "14px",
+    },
+    buttonContainer: {
+      display: "flex",
+      flexWrap: "wrap",
+      gap: "8px",
+      marginBottom: "16px",
+    },
+    button: {
+      display: "inline-flex",
+      alignItems: "center",
+      padding: "6px 12px",
+      backgroundColor: "#f3f4f6",
+      border: "1px solid #d1d5db",
+      borderRadius: "4px",
+      fontSize: "14px",
+      cursor: "pointer",
+    },
+    primaryButton: {
+      backgroundColor: "#3b82f6",
+      color: "white",
+      border: "none",
+    },
+    secondaryButton: {
+      backgroundColor: "#e5e7eb",
+      color: "#1f2937",
+      border: "none",
+    },
+    disabledButton: {
+      opacity: 0.5,
+      cursor: "not-allowed",
+    },
+    statsContainer: {
+      display: "grid",
+      gridTemplateColumns: "1fr 1fr",
+      gap: "8px",
+      marginTop: "8px",
+    },
+    statsCard: {
+      backgroundColor: "white",
+      borderRadius: "4px",
+      padding: "12px",
+      textAlign: "center",
+      boxShadow: "0 1px 2px rgba(0,0,0,0.05)",
+    },
+    statsLabel: {
+      fontSize: "14px",
+      color: "#6b7280",
+      margin: "0 0 4px 0",
+    },
+    statsValue: {
+      fontSize: "18px",
+      fontWeight: "bold",
+      margin: 0,
+    },
+    mapContainer: {
+      height: "500px",
+      width: "100%",
+      borderRadius: "8px",
+      overflow: "hidden",
+      border: "1px solid #d1d5db",
+    },
+    footer: {
+      marginTop: "16px",
+      fontSize: "14px",
+      color: "#6b7280",
+    },
+    connectedStatus: {
+      display: "flex",
+      alignItems: "center",
+      fontSize: "12px",
+      color: "#10b981",
+    },
+    disconnectedStatus: {
+      display: "flex",
+      alignItems: "center",
+      fontSize: "12px",
+      color: "#ef4444",
+    },
+  }
 
-    const checkIfReachedDestination = (lat, lng) => {
-        if (endPoint) {
-            const distanceToDest = Math.sqrt(
-                Math.pow(endPoint.lat - lat, 2) + Math.pow(endPoint.lng - lng, 2)
-            );
-            if (distanceToDest < 0.001) {
-                speak("You have reached your destination.");
-                alert("You have reached your destination!");
-                setEndPoint(null);
-            }
-        }
-    };
-
-    return (
-        <div style={{ padding: '10px', maxWidth: '600px', margin: 'auto', textAlign: 'center' }}>
-            <div style={{ marginBottom: '10px' }}>
-                <input type="text" placeholder="From" value={fromInput} 
-                    onChange={(e) => { setFromInput(e.target.value); fetchLocation(e.target.value, setFromSuggestions); }}
-                    style={{ width: '100%', padding: '8px', marginBottom: '5px' }}
-                />
-                <ul>{fromSuggestions.map((suggestion, index) => (
-                    <li key={index} style={{ cursor: 'pointer' }} 
-                        onClick={() => selectLocation(suggestion, setUserLocation, setFromInput, setFromSuggestions)}>
-                        {suggestion.display_name}
-                    </li>
-                ))}</ul>
-                <input type="text" placeholder="To" value={toInput} 
-                    onChange={(e) => { setToInput(e.target.value); fetchLocation(e.target.value, setToSuggestions); }}
-                    style={{ width: '100%', padding: '8px', marginBottom: '5px' }}
-                />
-                <ul>{toSuggestions.map((suggestion, index) => (
-                    <li key={index} style={{ cursor: 'pointer' }} 
-                        onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
-                        {suggestion.display_name}
-                    </li>
-                ))}</ul>
-            </div>
-            <p>Distance: {distance} km</p>
-            <p>Duration: {duration}</p>
-            <MapContainer center={userLocation} zoom={13} style={{ height: '400px', width: '100%' }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                <Marker position={userLocation} />
-                {endPoint && <Marker position={[endPoint.lat, endPoint.lng]} />}
-                {route.length > 0 && <Polyline positions={route} color="red" />}
-                <RecenterMap center={userLocation} />
-            </MapContainer>
+  return (
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <div style={styles.cardHeader}>
+          <h2 style={styles.cardTitle}>
+            <span>Interactive Map</span>
+            {socketConnected ? (
+              <span style={styles.connectedStatus}>
+                <LocateFixedIcon /> Connected
+              </span>
+            ) : (
+              <span style={styles.disconnectedStatus}>
+                <LocateFixedIcon /> Disconnected
+              </span>
+            )}
+          </h2>
         </div>
-    );
-};
+        <div style={styles.cardContent}>
+          {error && <div style={styles.alert}>{error}</div>}
 
-export default Maps7;
+          {/* From Input */}
+          <div style={styles.inputContainer}>
+            <div style={styles.inputWrapper}>
+              <MapPinIcon />
+              <input
+                type="text"
+                placeholder="From"
+                value={fromInput}
+                onChange={(e) => setFromInput(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+            {fromSuggestions.length > 0 && (
+              <div style={styles.suggestionCard}>
+                <ul style={styles.suggestionList}>
+                  {fromSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      style={styles.suggestionItem}
+                      onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}
+                      onMouseOver={(e) => (e.target.style.backgroundColor = "#f3f4f6")}
+                      onMouseOut={(e) => (e.target.style.backgroundColor = "transparent")}
+                    >
+                      {suggestion.display_name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* To Input */}
+          <div style={styles.inputContainer}>
+            <div style={styles.inputWrapper}>
+              <NavigationIcon />
+              <input
+                type="text"
+                placeholder="To"
+                value={toInput}
+                onChange={(e) => setToInput(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+            {toSuggestions.length > 0 && (
+              <div style={styles.suggestionCard}>
+                <ul style={styles.suggestionList}>
+                  {toSuggestions.map((suggestion, index) => (
+                    <li
+                      key={index}
+                      style={styles.suggestionItem}
+                      onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}
+                      onMouseOver={(e) => (e.target.style.backgroundColor = "#f3f4f6")}
+                      onMouseOut={(e) => (e.target.style.backgroundColor = "transparent")}
+                    >
+                      {suggestion.display_name}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+
+          <div style={styles.buttonContainer}>
+            <button
+              style={{
+                ...styles.button,
+                ...(!userLocation[0] && styles.disabledButton),
+              }}
+              onClick={() => setStartPoint({ lat: userLocation[0], lng: userLocation[1] })}
+              disabled={!userLocation[0]}
+            >
+              <MapPinIcon />
+              Set Start to Current
+            </button>
+
+            <button
+              style={{
+                ...styles.button,
+                ...(!userLocation[0] && styles.disabledButton),
+              }}
+              onClick={() => setEndPoint({ lat: userLocation[0], lng: userLocation[1] })}
+              disabled={!userLocation[0]}
+            >
+              <NavigationIcon />
+              Set End to Current
+            </button>
+
+            <button
+              style={{
+                ...styles.button,
+                ...styles.primaryButton,
+                ...((!startPoint || !endPoint || loading) && styles.disabledButton),
+              }}
+              onClick={fetchRoute}
+              disabled={!startPoint || !endPoint || loading}
+            >
+              <SearchIcon />
+              {loading ? "Calculating..." : "Get Route"}
+            </button>
+
+            <button
+              style={{
+                ...styles.button,
+                ...styles.secondaryButton,
+              }}
+              onClick={resetRoute}
+            >
+              Reset
+            </button>
+          </div>
+
+          {(distance || duration) && (
+            <div style={styles.statsContainer}>
+              <div style={styles.statsCard}>
+                <p style={styles.statsLabel}>Distance</p>
+                <p style={styles.statsValue}>{distance} km</p>
+              </div>
+              <div style={styles.statsCard}>
+                <p style={styles.statsLabel}>Duration</p>
+                <p style={styles.statsValue}>{duration}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Map Component */}
+      <div style={styles.mapContainer}>
+        {typeof window !== "undefined" && (
+          <MapContainer
+            center={userLocation}
+            zoom={13}
+            style={{ height: "100%", width: "100%" }}
+            attributionControl={false}
+          >
+            <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+
+            {/* User Location Marker */}
+            <Marker position={userLocation}>
+              <Popup>Your Location</Popup>
+            </Marker>
+
+            {/* Start Point Marker */}
+            {startPoint && (
+              <Marker
+                position={[startPoint.lat, startPoint.lng]}
+                icon={
+                  new L.Icon({
+                    iconUrl:
+                      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-green.png",
+                    iconRetinaUrl:
+                      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png",
+                    shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41],
+                  })
+                }
+              >
+                <Popup>Start Point</Popup>
+              </Marker>
+            )}
+
+            {/* End Point Marker */}
+            {endPoint && (
+              <Marker
+                position={[endPoint.lat, endPoint.lng]}
+                icon={
+                  new L.Icon({
+                    iconUrl:
+                      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+                    iconRetinaUrl:
+                      "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png",
+                    shadowUrl: "https://unpkg.com/leaflet@1.7.1/dist/images/marker-shadow.png",
+                    iconSize: [25, 41],
+                    iconAnchor: [12, 41],
+                    popupAnchor: [1, -34],
+                    shadowSize: [41, 41],
+                  })
+                }
+              >
+                <Popup>End Point</Popup>
+              </Marker>
+            )}
+
+            {/* Route Polyline */}
+            {route.length > 0 && <Polyline positions={route} color="#3b82f6" weight={5} opacity={0.7} />}
+
+            <RecenterMap center={userLocation} />
+            <MapClickHandler />
+          </MapContainer>
+        )}
+      </div>
+
+      <div style={styles.footer}>
+        <p>Click on the map to set start and end points, or use the search boxes above.</p>
+      </div>
+    </div>
+  )
+}
+
+export default Maps7
 
 
 
+
+
+// 
 
 
 
