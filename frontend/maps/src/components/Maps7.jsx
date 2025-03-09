@@ -1444,13 +1444,12 @@
 
 
 
-
-
 import React, { useEffect, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import io from 'socket.io-client';
 import axios from 'axios';
+import "./Maps.css";
 
 const socket = io('https://map-functionality.onrender.com', {
     transports: ['websocket'],
@@ -1474,14 +1473,17 @@ const RecenterMap = ({ center }) => {
     return null;
 };
 
-const Maps = () => {
+const Maps7 = () => {
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
-    const [destination, setDestination] = useState(null);
+    const [startPoint, setStartPoint] = useState(null);
+    const [endPoint, setEndPoint] = useState(null);
     const [route, setRoute] = useState([]);
     const [distance, setDistance] = useState(null);
     const [duration, setDuration] = useState(null);
-    const [destinationInput, setDestinationInput] = useState('');
-    const [suggestions, setSuggestions] = useState([]);
+    const [fromInput, setFromInput] = useState('');
+    const [toInput, setToInput] = useState('');
+    const [fromSuggestions, setFromSuggestions] = useState([]);
+    const [toSuggestions, setToSuggestions] = useState([]);
 
     useEffect(() => {
         if (navigator.geolocation) {
@@ -1489,12 +1491,13 @@ const Maps = () => {
                 const { latitude, longitude } = position.coords;
                 setUserLocation([latitude, longitude]);
                 socket.emit('updateLocation', { lat: latitude, lng: longitude });
+                if (!startPoint) setStartPoint({ lat: latitude, lng: longitude });
                 checkIfReachedDestination(latitude, longitude);
             });
         }
-    }, [destination]);
+    }, [startPoint, endPoint]);
 
-    const fetchLocation = async (query) => {
+    const fetchLocation = async (query, setSuggestions) => {
         try {
             const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
             setSuggestions(response.data);
@@ -1503,18 +1506,18 @@ const Maps = () => {
         }
     };
 
-    const selectDestination = (location) => {
+    const selectLocation = (location, setPoint, setInput, setSuggestions) => {
         const selectedPoint = { lat: parseFloat(location.lat), lng: parseFloat(location.lon) };
-        setDestination(selectedPoint);
-        setDestinationInput(location.display_name);
+        setPoint(selectedPoint);
+        setInput(location.display_name);
         setSuggestions([]);
-        fetchRoute(userLocation, selectedPoint);
+        if (startPoint && endPoint) fetchRoute(startPoint, endPoint);
     };
 
     const fetchRoute = async (start, end) => {
         try {
             const response = await axios.get(
-                `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end.lng},${end.lat}?overview=full&geometries=geojson`
+                `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`
             );
             const routeData = response.data.routes[0];
             setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
@@ -1527,42 +1530,33 @@ const Maps = () => {
     };
 
     const checkIfReachedDestination = (lat, lng) => {
-        if (destination) {
+        if (endPoint) {
             const distanceToDest = Math.sqrt(
-                Math.pow(destination.lat - lat, 2) + Math.pow(destination.lng - lng, 2)
+                Math.pow(endPoint.lat - lat, 2) + Math.pow(endPoint.lng - lng, 2)
             );
             if (distanceToDest < 0.001) {
                 speak("You have reached your destination.");
                 alert("You have reached your destination!");
-                setDestination(null);
+                setEndPoint(null);
             }
         }
     };
 
     return (
-        <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
-            <input
-                type="text"
-                placeholder="Enter Destination"
-                value={destinationInput}
-                onChange={(e) => {
-                    setDestinationInput(e.target.value);
-                    fetchLocation(e.target.value);
-                }}
-            />
-            <ul>
-                {suggestions.map((suggestion, index) => (
-                    <li key={index} onClick={() => selectDestination(suggestion)}>
-                        {suggestion.display_name}
-                    </li>
-                ))}
-            </ul>
+        <div className="map-container">
+            <div className="input-container">
+                <input type="text" placeholder="From" value={fromInput} onChange={(e) => { setFromInput(e.target.value); fetchLocation(e.target.value, setFromSuggestions); }} />
+                <ul>{fromSuggestions.map((suggestion, index) => (<li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>{suggestion.display_name}</li>))}</ul>
+                <input type="text" placeholder="To" value={toInput} onChange={(e) => { setToInput(e.target.value); fetchLocation(e.target.value, setToSuggestions); }} />
+                <ul>{toSuggestions.map((suggestion, index) => (<li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>{suggestion.display_name}</li>))}</ul>
+            </div>
             <p>Distance: {distance} km</p>
             <p>Duration: {duration}</p>
-            <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%' }}>
+            <MapContainer center={userLocation} zoom={13} className="map">
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} />
-                {destination && <Marker position={[destination.lat, destination.lng]} />}
+                {startPoint && <Marker position={[startPoint.lat, startPoint.lng]} />}
+                {endPoint && <Marker position={[endPoint.lat, endPoint.lng]} />}
                 {route.length > 0 && <Polyline positions={route} color="red" />}
                 <RecenterMap center={userLocation} />
             </MapContainer>
@@ -1570,7 +1564,8 @@ const Maps = () => {
     );
 };
 
-export default Maps;
+export default Maps7;
+
 
 
 
