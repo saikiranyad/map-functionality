@@ -1472,7 +1472,7 @@ const RecenterMap = ({ center }) => {
     return null;
 };
 
-const Maps = () => {
+const Maps7 = () => {
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
     const [endPoint, setEndPoint] = useState(null);
     const [route, setRoute] = useState([]);
@@ -1576,7 +1576,7 @@ const Maps = () => {
     );
 };
 
-export default Maps;
+export default Maps7;
 
 
 
