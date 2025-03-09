@@ -1444,7 +1444,9 @@
 
 
 
-"use client"
+
+
+
 
 import { useEffect, useState, useCallback } from "react"
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from "react-leaflet"
@@ -2115,6 +2117,7 @@ const Maps7 = () => {
 }
 
 export default Maps7
+
 
 
 
