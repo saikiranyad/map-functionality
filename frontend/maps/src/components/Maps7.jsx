@@ -1447,158 +1447,219 @@
 
 
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css';
-import io from 'socket.io-client';
-import L from 'leaflet';
-import axios from 'axios';
-import debounce from 'lodash.debounce';
-
-import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
-import markerIcon from 'leaflet/dist/images/marker-icon.png';
-import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+import React, { useEffect, useState } from "react";
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from "react-leaflet";
+import "leaflet/dist/leaflet.css";
+import io from "socket.io-client";
+import L from "leaflet";
+import axios from "axios";
 
 // Fix Leaflet marker icons
+import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
+import markerIcon from "leaflet/dist/images/marker-icon.png";
+import markerShadow from "leaflet/dist/images/marker-shadow.png";
+
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
-    iconRetinaUrl: markerIcon2x,
-    iconUrl: markerIcon,
-    shadowUrl: markerShadow,
+  iconRetinaUrl: markerIcon2x,
+  iconUrl: markerIcon,
+  shadowUrl: markerShadow,
 });
 
-const socket = io('https://map-functionality.onrender.com', {
-    transports: ['websocket'],
-    reconnection: true,
-    reconnectionAttempts: 5,
-    reconnectionDelay: 3000
+// Initialize socket connection
+const socket = io("https://map-functionality.onrender.com", {
+  transports: ["websocket"],
+  reconnection: true,
+  reconnectionAttempts: 5,
+  reconnectionDelay: 3000,
 });
 
-const RecenterMap = ({ center }) => {
-    const map = useMap();
-    useEffect(() => {
-        map.setView(center, map.getZoom());
-    }, [center, map]);
-    return null;
+// Custom debounce hook
+const useDebounce = (value, delay = 500) => {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
 };
 
+// Component to recenter the map
+const RecenterMap = ({ center }) => {
+  const map = useMap();
+  useEffect(() => {
+    map.setView(center, map.getZoom());
+  }, [center, map]);
+  return null;
+};
+
+// Main component
 const Maps7 = () => {
-    const [userLocation, setUserLocation] = useState([51.505, -0.09]);
-    const [startPoint, setStartPoint] = useState(null);
-    const [endPoint, setEndPoint] = useState(null);
-    const [route, setRoute] = useState([]);
-    const [distance, setDistance] = useState(null);
-    const [duration, setDuration] = useState(null);
-    const [error, setError] = useState(null);
-    
-    const [fromInput, setFromInput] = useState('');
-    const [toInput, setToInput] = useState('');
-    const [fromSuggestions, setFromSuggestions] = useState([]);
-    const [toSuggestions, setToSuggestions] = useState([]);
+  const [userLocation, setUserLocation] = useState([51.505, -0.09]); // Default location
+  const [startPoint, setStartPoint] = useState(null);
+  const [endPoint, setEndPoint] = useState(null);
+  const [route, setRoute] = useState([]);
+  const [distance, setDistance] = useState(null);
+  const [duration, setDuration] = useState(null);
+  const [fromInput, setFromInput] = useState("");
+  const [toInput, setToInput] = useState("");
+  const [fromSuggestions, setFromSuggestions] = useState([]);
+  const [toSuggestions, setToSuggestions] = useState([]);
 
-    useEffect(() => {
-        if (navigator.geolocation) {
-            navigator.geolocation.watchPosition((position) => {
-                const { latitude, longitude } = position.coords;
-                setUserLocation([latitude, longitude]);
-                socket.emit('updateLocation', { lat: latitude, lng: longitude });
-            });
+  // Get user location
+  useEffect(() => {
+    if (navigator.geolocation) {
+      navigator.geolocation.watchPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setUserLocation([latitude, longitude]);
+          socket.emit("updateLocation", { lat: latitude, lng: longitude });
+        },
+        (error) => console.error("Error getting location:", error),
+        { enableHighAccuracy: true }
+      );
+    }
+  }, []);
+
+  // Fetch location suggestions from OpenStreetMap
+  const fetchLocation = async (query, setSuggestions) => {
+    if (!query.trim()) return;
+    try {
+      const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
+      setSuggestions(response.data);
+    } catch (error) {
+      console.error("Error fetching location:", error);
+    }
+  };
+
+  // Debounced input values
+  const debouncedFromInput = useDebounce(fromInput);
+  const debouncedToInput = useDebounce(toInput);
+
+  useEffect(() => {
+    fetchLocation(debouncedFromInput, setFromSuggestions);
+  }, [debouncedFromInput]);
+
+  useEffect(() => {
+    fetchLocation(debouncedToInput, setToSuggestions);
+  }, [debouncedToInput]);
+
+  // Select a location from suggestions
+  const selectLocation = (location, setPoint, setInput, setSuggestions) => {
+    const selectedPoint = { lat: parseFloat(location.lat), lng: parseFloat(location.lon) };
+    setPoint(selectedPoint);
+    setInput(location.display_name);
+    setSuggestions([]);
+  };
+
+  // Fetch route between start and end points
+  const fetchRoute = async () => {
+    if (!startPoint || !endPoint) return;
+
+    try {
+      const response = await axios.get(
+        `https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`
+      );
+
+      const routeData = response.data.routes[0];
+      setRoute(routeData.geometry.coordinates.map((coord) => [coord[1], coord[0]]));
+      setDistance((routeData.distance / 1000).toFixed(2));
+      setDuration(`${Math.floor(routeData.duration / 3600)}h ${Math.floor((routeData.duration % 3600) / 60)}m`);
+    } catch (error) {
+      console.error("Error fetching route:", error);
+    }
+  };
+
+  // Handle map clicks for setting start and end points
+  const MapClickHandler = () => {
+    useMapEvents({
+      click(e) {
+        if (!startPoint) {
+          setStartPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
+        } else if (!endPoint) {
+          setEndPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
         }
-    }, []);
+      },
+    });
+    return null;
+  };
 
-    const fetchLocation = useCallback(debounce(async (query, setSuggestions) => {
-        if (!query) return;
-        try {
-            const response = await axios.get(`https://nominatim.openstreetmap.org/search?format=json&q=${query}`);
-            setSuggestions(response.data);
-        } catch (error) {
-            console.error("Error fetching location:", error);
-        }
-    }, 500), []);
+  return (
+    <div style={{ padding: "20px", textAlign: "center", background: "#f8f9fa", borderRadius: "10px" }}>
+      {/* From Input */}
+      <input
+        type="text"
+        placeholder="From"
+        value={fromInput}
+        onChange={(e) => setFromInput(e.target.value)}
+      />
+      <ul>
+        {fromSuggestions.map((suggestion, index) => (
+          <li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>
+            {suggestion.display_name}
+          </li>
+        ))}
+      </ul>
 
-    const selectLocation = (location, setPoint, setInput, setSuggestions) => {
-        const selectedPoint = { lat: parseFloat(location.lat), lng: parseFloat(location.lon) };
-        setPoint(selectedPoint);
-        setInput(location.display_name);
-        setSuggestions([]);
-    };
+      {/* To Input */}
+      <input
+        type="text"
+        placeholder="To"
+        value={toInput}
+        onChange={(e) => setToInput(e.target.value)}
+      />
+      <ul>
+        {toSuggestions.map((suggestion, index) => (
+          <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
+            {suggestion.display_name}
+          </li>
+        ))}
+      </ul>
 
-    const fetchRoute = async () => {
-        if (startPoint && endPoint) {
-            try {
-                const response = await axios.get(
-                    `https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`
-                );
-                const routeData = response.data.routes[0];
-                setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
-                setDistance((routeData.distance / 1000).toFixed(2));
-                setDuration(`${Math.floor(routeData.duration / 3600)}h ${Math.floor((routeData.duration % 3600) / 60)}m`);
-                setError(null);
-            } catch (error) {
-                console.error("Error fetching route:", error);
-                setError("Failed to fetch route. Try again later.");
-            }
-        }
-    };
+      <br />
+      {/* Set Start and End Buttons */}
+      <button onClick={() => setStartPoint({ lat: userLocation[0], lng: userLocation[1] })}>
+        Set Start Point
+      </button>
+      <button onClick={() => setEndPoint({ lat: userLocation[0], lng: userLocation[1] })}>
+        Set End Point
+      </button>
 
-    const MapClickHandler = () => {
-        useMapEvents({
-            click(e) {
-                if (!startPoint) {
-                    setStartPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
-                } else if (!endPoint) {
-                    setEndPoint({ lat: e.latlng.lat, lng: e.latlng.lng });
-                }
-            },
-        });
-        return null;
-    };
+      <br />
+      {/* Get Route Button */}
+      <button onClick={fetchRoute}>Get Route</button>
 
-    return (
-        <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '10px' }}>
-            <input type="text" placeholder="From" value={fromInput} 
-                onChange={(e) => { setFromInput(e.target.value); fetchLocation(e.target.value, setFromSuggestions); }}
-            />
-            <ul>
-                {fromSuggestions.map((suggestion, index) => (
-                    <li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>
-                        {suggestion.display_name}
-                    </li>
-                ))}
-            </ul>
+      {/* Route Details */}
+      <p>Distance: {distance} km</p>
+      <p>Duration: {duration}</p>
 
-            <input type="text" placeholder="To" value={toInput} 
-                onChange={(e) => { setToInput(e.target.value); fetchLocation(e.target.value, setToSuggestions); }}
-            />
-            <ul>
-                {toSuggestions.map((suggestion, index) => (
-                    <li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
-                        {suggestion.display_name}
-                    </li>
-                ))}
-            </ul>
+      {/* Map Component */}
+      <MapContainer center={userLocation} zoom={13} style={{ height: "500px", width: "100%" }}>
+        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
-            <button onClick={fetchRoute}>Get Route</button>
-            {error && <p style={{ color: 'red' }}>{error}</p>}
-            <p>Distance: {distance} km</p>
-            <p>Duration: {duration}</p>
+        {/* Start Point Marker */}
+        {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
 
-            <MapContainer center={userLocation} zoom={13} style={{ height: '500px', width: '100%' }}>
-                <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-                {startPoint && <Marker position={[startPoint.lat, startPoint.lng]}><Popup>Start</Popup></Marker>}
-                {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
-                {route.length > 0 && <Polyline positions={route} color="red" />}
-                <Marker position={userLocation} icon={L.divIcon({ className: 'pulsing-icon' })}>
-                    <Popup>You are here</Popup>
-                </Marker>
-                <RecenterMap center={userLocation} />
-                <MapClickHandler />
-            </MapContainer>
-        </div>
-    );
+        {/* End Point Marker */}
+        {endPoint && <Marker position={[endPoint.lat, endPoint.lng]}><Popup>End</Popup></Marker>}
+
+        {/* Route Polyline */}
+        {route.length > 0 && <Polyline positions={route} color="red" />}
+
+        <RecenterMap center={userLocation} />
+        <MapClickHandler />
+      </MapContainer>
+    </div>
+  );
 };
 
 export default Maps7;
+
 
 
 
