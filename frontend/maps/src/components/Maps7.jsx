@@ -1449,7 +1449,6 @@ import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet
 import 'leaflet/dist/leaflet.css';
 import io from 'socket.io-client';
 import axios from 'axios';
-import "./Maps.css";
 
 const socket = io('https://map-functionality.onrender.com', {
     transports: ['websocket'],
@@ -1473,9 +1472,8 @@ const RecenterMap = ({ center }) => {
     return null;
 };
 
-const Maps7 = () => {
+const Maps = () => {
     const [userLocation, setUserLocation] = useState([51.505, -0.09]);
-    const [startPoint, setStartPoint] = useState(null);
     const [endPoint, setEndPoint] = useState(null);
     const [route, setRoute] = useState([]);
     const [distance, setDistance] = useState(null);
@@ -1491,11 +1489,10 @@ const Maps7 = () => {
                 const { latitude, longitude } = position.coords;
                 setUserLocation([latitude, longitude]);
                 socket.emit('updateLocation', { lat: latitude, lng: longitude });
-                if (!startPoint) setStartPoint({ lat: latitude, lng: longitude });
                 checkIfReachedDestination(latitude, longitude);
             });
         }
-    }, [startPoint, endPoint]);
+    }, [endPoint]);
 
     const fetchLocation = async (query, setSuggestions) => {
         try {
@@ -1511,13 +1508,13 @@ const Maps7 = () => {
         setPoint(selectedPoint);
         setInput(location.display_name);
         setSuggestions([]);
-        if (startPoint && endPoint) fetchRoute(startPoint, endPoint);
+        if (userLocation && endPoint) fetchRoute(userLocation, endPoint);
     };
 
     const fetchRoute = async (start, end) => {
         try {
             const response = await axios.get(
-                `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson`
+                `https://router.project-osrm.org/route/v1/driving/${start[1]},${start[0]};${end.lng},${end.lat}?overview=full&geometries=geojson`
             );
             const routeData = response.data.routes[0];
             setRoute(routeData.geometry.coordinates.map(coord => [coord[1], coord[0]]));
@@ -1543,19 +1540,34 @@ const Maps7 = () => {
     };
 
     return (
-        <div className="map-container">
-            <div className="input-container">
-                <input type="text" placeholder="From" value={fromInput} onChange={(e) => { setFromInput(e.target.value); fetchLocation(e.target.value, setFromSuggestions); }} />
-                <ul>{fromSuggestions.map((suggestion, index) => (<li key={index} onClick={() => selectLocation(suggestion, setStartPoint, setFromInput, setFromSuggestions)}>{suggestion.display_name}</li>))}</ul>
-                <input type="text" placeholder="To" value={toInput} onChange={(e) => { setToInput(e.target.value); fetchLocation(e.target.value, setToSuggestions); }} />
-                <ul>{toSuggestions.map((suggestion, index) => (<li key={index} onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>{suggestion.display_name}</li>))}</ul>
+        <div style={{ padding: '10px', maxWidth: '600px', margin: 'auto', textAlign: 'center' }}>
+            <div style={{ marginBottom: '10px' }}>
+                <input type="text" placeholder="From" value={fromInput} 
+                    onChange={(e) => { setFromInput(e.target.value); fetchLocation(e.target.value, setFromSuggestions); }}
+                    style={{ width: '100%', padding: '8px', marginBottom: '5px' }}
+                />
+                <ul>{fromSuggestions.map((suggestion, index) => (
+                    <li key={index} style={{ cursor: 'pointer' }} 
+                        onClick={() => selectLocation(suggestion, setUserLocation, setFromInput, setFromSuggestions)}>
+                        {suggestion.display_name}
+                    </li>
+                ))}</ul>
+                <input type="text" placeholder="To" value={toInput} 
+                    onChange={(e) => { setToInput(e.target.value); fetchLocation(e.target.value, setToSuggestions); }}
+                    style={{ width: '100%', padding: '8px', marginBottom: '5px' }}
+                />
+                <ul>{toSuggestions.map((suggestion, index) => (
+                    <li key={index} style={{ cursor: 'pointer' }} 
+                        onClick={() => selectLocation(suggestion, setEndPoint, setToInput, setToSuggestions)}>
+                        {suggestion.display_name}
+                    </li>
+                ))}</ul>
             </div>
             <p>Distance: {distance} km</p>
             <p>Duration: {duration}</p>
-            <MapContainer center={userLocation} zoom={13} className="map">
+            <MapContainer center={userLocation} zoom={13} style={{ height: '400px', width: '100%' }}>
                 <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
                 <Marker position={userLocation} />
-                {startPoint && <Marker position={[startPoint.lat, startPoint.lng]} />}
                 {endPoint && <Marker position={[endPoint.lat, endPoint.lng]} />}
                 {route.length > 0 && <Polyline positions={route} color="red" />}
                 <RecenterMap center={userLocation} />
@@ -1564,7 +1576,7 @@ const Maps7 = () => {
     );
 };
 
-export default Maps7;
+export default Maps;
 
 
 
