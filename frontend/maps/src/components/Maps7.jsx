@@ -1448,7 +1448,7 @@
 
 
 
-"use client"
+
 
 import { useEffect, useState, useCallback, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from "react-leaflet"
@@ -1508,7 +1508,7 @@ const RouteArrows = ({ route }) => {
 
       // Create arrow icon
       const arrowIcon = L.divIcon({
-        html: `<div style="transform: rotate(${angle + 90}deg); font-size: 20px;">➤</div>`,
+        html: `<div style="transform: rotate(${angle + 90}deg); font-size: 20px;">◄</div>`,
         className: "",
         iconSize: [20, 20],
         iconAnchor: [10, 10],
