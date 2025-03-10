@@ -1448,7 +1448,9 @@
 
 
 
-import { useEffect, useState, useCallback } from "react"
+"use client"
+
+import { useEffect, useState, useCallback, useRef } from "react"
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMapEvents, useMap } from "react-leaflet"
 import "leaflet/dist/leaflet.css"
 import L from "leaflet"
@@ -1464,13 +1466,64 @@ L.Icon.Default.mergeOptions({
 })
 
 // Component to recenter the map
-const RecenterMap = ({ center }) => {
+const RecenterMap = ({ center, follow }) => {
   const map = useMap()
   useEffect(() => {
-    if (center && center[0] && center[1]) {
+    if (center && center[0] && center[1] && follow) {
       map.setView(center, map.getZoom())
     }
-  }, [center, map])
+  }, [center, map, follow])
+  return null
+}
+
+// Component to add direction arrows to the route
+const RouteArrows = ({ route }) => {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!route || route.length < 2) return
+
+    // Clear existing arrows
+    map.eachLayer((layer) => {
+      if (layer.options && layer.options.pane === "arrowPane") {
+        map.removeLayer(layer)
+      }
+    })
+
+    // Create a custom pane for arrows if it doesn't exist
+    if (!map.getPane("arrowPane")) {
+      map.createPane("arrowPane")
+      map.getPane("arrowPane").style.zIndex = 450 // Above polyline but below popups
+    }
+
+    // Add arrows at regular intervals
+    for (let i = 0; i < route.length - 1; i += Math.max(1, Math.floor(route.length / 10))) {
+      const start = route[i]
+      const end = route[i + 1]
+
+      if (!start || !end) continue
+
+      // Calculate angle
+      const angle = (Math.atan2(end[1] - start[1], end[0] - start[0]) * 180) / Math.PI
+
+      // Create arrow icon
+      const arrowIcon = L.divIcon({
+        html: `<div style="transform: rotate(${angle + 90}deg); font-size: 20px;">➤</div>`,
+        className: "",
+        iconSize: [20, 20],
+        iconAnchor: [10, 10],
+      })
+
+      // Add marker with arrow icon
+      const midPoint = [(start[0] + end[0]) / 2, (start[1] + end[1]) / 2]
+      L.marker(midPoint, {
+        icon: arrowIcon,
+        pane: "arrowPane",
+        interactive: false,
+      }).addTo(map)
+    }
+  }, [route, map])
+
   return null
 }
 
@@ -1550,6 +1603,84 @@ const LocateFixedIcon = () => (
   </svg>
 )
 
+const PlayIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px" }}
+  >
+    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+  </svg>
+)
+
+const StopIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px" }}
+  >
+    <rect width="18" height="18" x="3" y="3" rx="2" ry="2"></rect>
+  </svg>
+)
+
+const CancelIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ marginRight: "8px" }}
+  >
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="15" y1="9" x2="9" y2="15"></line>
+    <line x1="9" y1="9" x2="15" y2="15"></line>
+  </svg>
+)
+
+// Helper functions
+const deg2rad = (deg) => {
+  return deg * (Math.PI / 180)
+}
+
+// Calculate bearing between two points
+const calculateBearing = (point1, point2) => {
+  const lat1 = deg2rad(point1[0])
+  const lon1 = deg2rad(point1[1])
+  const lat2 = deg2rad(point2[0])
+  const lon2 = deg2rad(point2[1])
+
+  const y = Math.sin(lon2 - lon1) * Math.cos(lat2)
+  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(lon2 - lon1)
+  const bearing = (Math.atan2(y, x) * 180) / Math.PI
+  return (bearing + 360) % 360
+}
+
+// Get direction from bearing
+const getDirectionFromBearing = (bearing) => {
+  const directions = ["North", "Northeast", "East", "Southeast", "South", "Southwest", "West", "Northwest"]
+  const index = Math.round(bearing / 45) % 8
+  return directions[index]
+}
+
 const Maps7 = () => {
   // State management
   const [userLocation, setUserLocation] = useState([51.505, -0.09])
@@ -1565,53 +1696,200 @@ const Maps7 = () => {
   const [error, setError] = useState(null)
   const [socketConnected, setSocketConnected] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [rideInProgress, setRideInProgress] = useState(false)
+  const [followUser, setFollowUser] = useState(false)
+  const [nextDirection, setNextDirection] = useState(null)
+  const [remainingDistance, setRemainingDistance] = useState(null)
+  const [shortestRoute, setShortestRoute] = useState(null)
+  const [rideStatus, setRideStatus] = useState("idle") // 'idle', 'set', 'active', 'ended'
+
+  // Refs
+  const mapRef = useRef(null)
+  const watchPositionId = useRef(null)
+  const speechSynthesisRef = useRef(null)
+  const lastAlertTimeRef = useRef(0)
+  const socketRef = useRef(null)
+  const destinationAlertedRef = useRef({
+    arrival: false,
+    approaching: false,
+    nearby: false,
+  })
+
+  // Initialize speech synthesis
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      speechSynthesisRef.current = window.speechSynthesis
+    }
+  }, [])
+
+  // Speak function for voice navigation
+  const speak = (text) => {
+    if (!speechSynthesisRef.current) return
+
+    // Don't speak too frequently (minimum 5 seconds between alerts)
+    const now = Date.now()
+    if (now - lastAlertTimeRef.current < 5000) return
+
+    lastAlertTimeRef.current = now
+
+    // Cancel any ongoing speech
+    speechSynthesisRef.current.cancel()
+
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.rate = 1
+    utterance.volume = 1
+    speechSynthesisRef.current.speak(utterance)
+  }
 
   // Initialize socket connection
   useEffect(() => {
-    const socket = io("https://map-functionality.onrender.com", {
+    socketRef.current = io("https://map-functionality.onrender.com", {
       transports: ["websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 3000,
     })
 
-    socket.on("connect", () => {
+    socketRef.current.on("connect", () => {
       setSocketConnected(true)
       setError(null)
     })
 
-    socket.on("disconnect", () => {
+    socketRef.current.on("disconnect", () => {
       setSocketConnected(false)
     })
 
-    socket.on("connect_error", () => {
+    socketRef.current.on("connect_error", () => {
       setError("Failed to connect to location service")
     })
 
-    // Get user location
-    if (navigator.geolocation) {
-      const watchId = navigator.geolocation.watchPosition(
-        (position) => {
-          const { latitude, longitude } = position.coords
-          setUserLocation([latitude, longitude])
-          if (socket.connected) {
-            socket.emit("updateLocation", { lat: latitude, lng: longitude })
-          }
-        },
-        (err) => {
-          setError(`Geolocation error: ${err.message}`)
-        },
-        { enableHighAccuracy: true },
-      )
-
-      return () => {
-        navigator.geolocation.clearWatch(watchId)
-        socket.disconnect()
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect()
       }
-    } else {
-      setError("Geolocation is not supported by your browser")
     }
   }, [])
+
+  // Get user location
+  useEffect(() => {
+    const getInitialLocation = () => {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            setUserLocation([latitude, longitude])
+            // Auto-set start point to current location
+            setStartPoint({ lat: latitude, lng: longitude })
+            fetchLocationName(latitude, longitude, setFromInput)
+          },
+          (err) => {
+            setError(`Geolocation error: ${err.message}`)
+          },
+          { enableHighAccuracy: true, timeout: 10000 },
+        )
+      } else {
+        setError("Geolocation is not supported by your browser")
+      }
+    }
+
+    getInitialLocation()
+  }, [])
+
+  // Watch position when ride is in progress
+  useEffect(() => {
+    if (rideStatus === "active") {
+      if (navigator.geolocation) {
+        watchPositionId.current = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords
+            setUserLocation([latitude, longitude])
+
+            if (socketRef.current && socketRef.current.connected) {
+              socketRef.current.emit("updateLocation", { lat: latitude, lng: longitude })
+            }
+
+            // Check distance to destination for voice alerts
+            if (endPoint && route.length > 0) {
+              const distanceToEnd = calculateDistance([latitude, longitude], [endPoint.lat, endPoint.lng])
+
+              setRemainingDistance(distanceToEnd.toFixed(2))
+
+              // Voice alerts based on distance
+              if (distanceToEnd < 0.05 && !destinationAlertedRef.current.arrival) {
+                // 50 meters
+                speak("You have arrived at your destination")
+                destinationAlertedRef.current.arrival = true
+              } else if (distanceToEnd < 0.2 && !destinationAlertedRef.current.approaching) {
+                // 200 meters
+                speak("Your destination is approaching")
+                destinationAlertedRef.current.approaching = true
+              } else if (distanceToEnd < 0.5 && !destinationAlertedRef.current.nearby) {
+                // 500 meters
+                speak("Your destination is 500 meters ahead")
+                destinationAlertedRef.current.nearby = true
+              }
+
+              // Find the closest point on the route
+              let minDistance = Number.POSITIVE_INFINITY
+              let closestPointIndex = 0
+
+              route.forEach((point, index) => {
+                const dist = calculateDistance([latitude, longitude], point)
+                if (dist < minDistance) {
+                  minDistance = dist
+                  closestPointIndex = index
+                }
+              })
+
+              // Get next direction if available
+              if (closestPointIndex < route.length - 1) {
+                const nextPoint = route[closestPointIndex + 1]
+
+                // Calculate bearing
+                const bearing = calculateBearing([latitude, longitude], nextPoint)
+
+                setNextDirection(getDirectionFromBearing(bearing))
+              }
+            }
+          },
+          (err) => {
+            setError(`Geolocation error: ${err.message}`)
+          },
+          { enableHighAccuracy: true, maximumAge: 0 },
+        )
+      }
+    } else {
+      // Clear watch when ride is not in progress
+      if (watchPositionId.current) {
+        navigator.geolocation.clearWatch(watchPositionId.current)
+        watchPositionId.current = null
+      }
+    }
+
+    return () => {
+      if (watchPositionId.current) {
+        navigator.geolocation.clearWatch(watchPositionId.current)
+      }
+    }
+  }, [rideStatus, endPoint, route])
+
+  // Calculate distance between two points in km
+  const calculateDistance = (point1, point2) => {
+    const lat1 = point1[0]
+    const lon1 = point1[1]
+    const lat2 = point2[0]
+    const lon2 = point2[1]
+
+    const R = 6371 // Radius of the earth in km
+    const dLat = deg2rad(lat2 - lat1)
+    const dLon = deg2rad(lon2 - lon1)
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon / 2) * Math.sin(dLon / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    const distance = R * c // Distance in km
+    return distance
+  }
 
   // Fetch location suggestions from OpenStreetMap with debounce
   const fetchLocation = useCallback(async (query, setSuggestions) => {
@@ -1672,16 +1950,38 @@ const Maps7 = () => {
 
     try {
       setLoading(true)
+
+      // Try to get multiple route alternatives
       const response = await axios.get(
-        `https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson`,
+        `https://router.project-osrm.org/route/v1/driving/${startPoint.lng},${startPoint.lat};${endPoint.lng},${endPoint.lat}?overview=full&geometries=geojson&alternatives=true`,
       )
 
       if (response.data.code !== "Ok") {
         throw new Error("Route not found")
       }
 
-      const routeData = response.data.routes[0]
-      setRoute(routeData.geometry.coordinates.map((coord) => [coord[1], coord[0]]))
+      // Get all routes
+      const routes = response.data.routes
+
+      if (routes.length === 0) {
+        throw new Error("No routes found")
+      }
+
+      // Find the shortest route
+      let shortestRouteIndex = 0
+      let shortestDistance = routes[0].distance
+
+      routes.forEach((route, index) => {
+        if (route.distance < shortestDistance) {
+          shortestDistance = route.distance
+          shortestRouteIndex = index
+        }
+      })
+
+      const routeData = routes[shortestRouteIndex]
+      const routeCoordinates = routeData.geometry.coordinates.map((coord) => [coord[1], coord[0]])
+
+      setRoute(routeCoordinates)
       setDistance((routeData.distance / 1000).toFixed(2))
 
       // Format duration
@@ -1689,7 +1989,14 @@ const Maps7 = () => {
       const minutes = Math.floor((routeData.duration % 3600) / 60)
       setDuration(`${hours}h ${minutes}m`)
 
+      // Set shortest route info
+      setShortestRoute({
+        distance: (routeData.distance / 1000).toFixed(2),
+        duration: `${hours}h ${minutes}m`,
+      })
+
       setError(null)
+      setRideStatus("set")
     } catch (error) {
       console.error("Error fetching route:", error)
       setError("Failed to calculate route. Please try different locations.")
@@ -1702,11 +2009,9 @@ const Maps7 = () => {
   const MapClickHandler = () => {
     useMapEvents({
       click(e) {
-        if (!startPoint) {
-          setStartPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
-          // Try to get address for the clicked location
-          fetchLocationName(e.latlng.lat, e.latlng.lng, setFromInput)
-        } else if (!endPoint) {
+        if (rideStatus === "active") return // Don't allow changing points during ride
+
+        if (!endPoint) {
           setEndPoint({ lat: e.latlng.lat, lng: e.latlng.lng })
           // Try to get address for the clicked location
           fetchLocationName(e.latlng.lat, e.latlng.lng, setToInput)
@@ -1730,17 +2035,66 @@ const Maps7 = () => {
     }
   }
 
+  // Set ride
+  const setRide = () => {
+    if (!route.length) {
+      setError("Please calculate a route first")
+      return
+    }
+
+    setRideStatus("set")
+    speak("Route is set. Press Start Ride when you're ready to begin navigation.")
+  }
+
+  // Start ride
+  const startRide = () => {
+    if (!route.length) {
+      setError("Please calculate a route first")
+      return
+    }
+
+    setRideStatus("active")
+    setFollowUser(true)
+
+    // Reset destination alerts
+    destinationAlertedRef.current = {
+      arrival: false,
+      approaching: false,
+      nearby: false,
+    }
+
+    speak(
+      "Starting navigation. Follow the route on your screen. Voice guidance will alert you as you approach your destination.",
+    )
+  }
+
+  // Cancel ride
+  const cancelRide = () => {
+    setRideStatus("idle")
+    setFollowUser(false)
+    speak("Navigation cancelled.")
+  }
+
+  // End ride
+  const endRide = () => {
+    setRideStatus("ended")
+    setFollowUser(false)
+    speak("You have reached your destination. Navigation ended.")
+  }
+
   // Reset route and points
   const resetRoute = () => {
-    setStartPoint(null)
     setEndPoint(null)
     setRoute([])
     setDistance(null)
     setDuration(null)
-    setFromInput("")
     setToInput("")
-    setFromSuggestions([])
     setToSuggestions([])
+    setRideStatus("idle")
+    setFollowUser(false)
+    setNextDirection(null)
+    setRemainingDistance(null)
+    setShortestRoute(null)
   }
 
   // Styles
@@ -1841,6 +2195,21 @@ const Maps7 = () => {
       color: "#1f2937",
       border: "none",
     },
+    successButton: {
+      backgroundColor: "#10b981",
+      color: "white",
+      border: "none",
+    },
+    warningButton: {
+      backgroundColor: "#f59e0b",
+      color: "white",
+      border: "none",
+    },
+    dangerButton: {
+      backgroundColor: "#ef4444",
+      color: "white",
+      border: "none",
+    },
     disabledButton: {
       opacity: 0.5,
       cursor: "not-allowed",
@@ -1868,6 +2237,31 @@ const Maps7 = () => {
       fontWeight: "bold",
       margin: 0,
     },
+    navigationInfo: {
+      backgroundColor: "#f3f4f6",
+      borderRadius: "4px",
+      padding: "12px",
+      marginTop: "16px",
+      display: rideStatus === "active" ? "block" : "none",
+    },
+    navigationTitle: {
+      fontSize: "16px",
+      fontWeight: "bold",
+      marginBottom: "8px",
+    },
+    navigationDetail: {
+      display: "flex",
+      justifyContent: "space-between",
+      marginBottom: "4px",
+    },
+    navigationLabel: {
+      fontSize: "14px",
+      color: "#6b7280",
+    },
+    navigationValue: {
+      fontSize: "14px",
+      fontWeight: "bold",
+    },
     mapContainer: {
       height: "500px",
       width: "100%",
@@ -1892,6 +2286,31 @@ const Maps7 = () => {
       fontSize: "12px",
       color: "#ef4444",
     },
+    statusBadge: {
+      display: "inline-block",
+      padding: "4px 8px",
+      borderRadius: "9999px",
+      fontSize: "12px",
+      fontWeight: "bold",
+      textTransform: "uppercase",
+      marginLeft: "8px",
+    },
+    idleStatus: {
+      backgroundColor: "#e5e7eb",
+      color: "#374151",
+    },
+    setStatus: {
+      backgroundColor: "#dbeafe",
+      color: "#1e40af",
+    },
+    activeStatus: {
+      backgroundColor: "#d1fae5",
+      color: "#065f46",
+    },
+    endedStatus: {
+      backgroundColor: "#fee2e2",
+      color: "#b91c1c",
+    },
   }
 
   return (
@@ -1899,7 +2318,20 @@ const Maps7 = () => {
       <div style={styles.card}>
         <div style={styles.cardHeader}>
           <h2 style={styles.cardTitle}>
-            <span>Interactive Map</span>
+            <span>
+              Interactive Navigation
+              <span
+                style={{
+                  ...styles.statusBadge,
+                  ...(rideStatus === "idle" ? styles.idleStatus : {}),
+                  ...(rideStatus === "set" ? styles.setStatus : {}),
+                  ...(rideStatus === "active" ? styles.activeStatus : {}),
+                  ...(rideStatus === "ended" ? styles.endedStatus : {}),
+                }}
+              >
+                {rideStatus.toUpperCase()}
+              </span>
+            </span>
             {socketConnected ? (
               <span style={styles.connectedStatus}>
                 <LocateFixedIcon /> Connected
@@ -1920,10 +2352,11 @@ const Maps7 = () => {
               <MapPinIcon />
               <input
                 type="text"
-                placeholder="From"
+                placeholder="From (Your Location)"
                 value={fromInput}
                 onChange={(e) => setFromInput(e.target.value)}
                 style={styles.input}
+                disabled={rideStatus === "active"}
               />
             </div>
             {fromSuggestions.length > 0 && (
@@ -1951,10 +2384,11 @@ const Maps7 = () => {
               <NavigationIcon />
               <input
                 type="text"
-                placeholder="To"
+                placeholder="To (Click on map or search)"
                 value={toInput}
                 onChange={(e) => setToInput(e.target.value)}
                 style={styles.input}
+                disabled={rideStatus === "active"}
               />
             </div>
             {toSuggestions.length > 0 && (
@@ -1980,39 +2414,69 @@ const Maps7 = () => {
             <button
               style={{
                 ...styles.button,
-                ...(!userLocation[0] && styles.disabledButton),
-              }}
-              onClick={() => setStartPoint({ lat: userLocation[0], lng: userLocation[1] })}
-              disabled={!userLocation[0]}
-            >
-              <MapPinIcon />
-              Set Start to Current
-            </button>
-
-            <button
-              style={{
-                ...styles.button,
-                ...(!userLocation[0] && styles.disabledButton),
-              }}
-              onClick={() => setEndPoint({ lat: userLocation[0], lng: userLocation[1] })}
-              disabled={!userLocation[0]}
-            >
-              <NavigationIcon />
-              Set End to Current
-            </button>
-
-            <button
-              style={{
-                ...styles.button,
                 ...styles.primaryButton,
                 ...((!startPoint || !endPoint || loading) && styles.disabledButton),
               }}
               onClick={fetchRoute}
-              disabled={!startPoint || !endPoint || loading}
+              disabled={!startPoint || !endPoint || loading || rideStatus === "active"}
             >
               <SearchIcon />
               {loading ? "Calculating..." : "Get Route"}
             </button>
+
+            {rideStatus === "idle" && (
+              <button
+                style={{
+                  ...styles.button,
+                  ...styles.warningButton,
+                  ...(!route.length && styles.disabledButton),
+                }}
+                onClick={setRide}
+                disabled={!route.length}
+              >
+                <PlayIcon />
+                Set Ride
+              </button>
+            )}
+
+            {rideStatus === "set" && (
+              <button
+                style={{
+                  ...styles.button,
+                  ...styles.successButton,
+                }}
+                onClick={startRide}
+              >
+                <PlayIcon />
+                Start Ride
+              </button>
+            )}
+
+            {rideStatus === "active" && (
+              <>
+                <button
+                  style={{
+                    ...styles.button,
+                    ...styles.dangerButton,
+                  }}
+                  onClick={endRide}
+                >
+                  <StopIcon />
+                  End Ride
+                </button>
+
+                <button
+                  style={{
+                    ...styles.button,
+                    ...styles.warningButton,
+                  }}
+                  onClick={cancelRide}
+                >
+                  <CancelIcon />
+                  Cancel Ride
+                </button>
+              </>
+            )}
 
             <button
               style={{
@@ -2020,6 +2484,7 @@ const Maps7 = () => {
                 ...styles.secondaryButton,
               }}
               onClick={resetRoute}
+              disabled={rideStatus === "active"}
             >
               Reset
             </button>
@@ -2037,6 +2502,40 @@ const Maps7 = () => {
               </div>
             </div>
           )}
+
+          {shortestRoute && (
+            <div style={{ ...styles.statsCard, marginTop: "8px" }}>
+              <p style={{ ...styles.statsLabel, textAlign: "left" }}>Shortest Route</p>
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <p style={{ margin: 0 }}>
+                  <strong>Distance:</strong> {shortestRoute.distance} km
+                </p>
+                <p style={{ margin: 0 }}>
+                  <strong>Duration:</strong> {shortestRoute.duration}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {rideStatus === "active" && (
+            <div style={styles.navigationInfo}>
+              <h3 style={styles.navigationTitle}>Navigation</h3>
+
+              {nextDirection && (
+                <div style={styles.navigationDetail}>
+                  <span style={styles.navigationLabel}>Direction:</span>
+                  <span style={styles.navigationValue}>{nextDirection}</span>
+                </div>
+              )}
+
+              {remainingDistance && (
+                <div style={styles.navigationDetail}>
+                  <span style={styles.navigationLabel}>Remaining:</span>
+                  <span style={styles.navigationValue}>{remainingDistance} km</span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -2048,6 +2547,7 @@ const Maps7 = () => {
             zoom={13}
             style={{ height: "100%", width: "100%" }}
             attributionControl={false}
+            ref={mapRef}
           >
             <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
 
@@ -2103,20 +2603,28 @@ const Maps7 = () => {
             {/* Route Polyline */}
             {route.length > 0 && <Polyline positions={route} color="#3b82f6" weight={5} opacity={0.7} />}
 
-            <RecenterMap center={userLocation} />
+            {/* Direction Arrows */}
+            {route.length > 0 && <RouteArrows route={route} />}
+
+            <RecenterMap center={userLocation} follow={followUser} />
             <MapClickHandler />
           </MapContainer>
         )}
       </div>
 
       <div style={styles.footer}>
-        <p>Click on the map to set start and end points, or use the search boxes above.</p>
+        <p>
+          Click on the map to set your destination. Press "Get Route" to calculate the route, then "Set Ride" followed
+          by "Start Ride" to begin navigation with voice guidance.
+        </p>
       </div>
     </div>
   )
 }
 
 export default Maps7
+
+
 
 
 
